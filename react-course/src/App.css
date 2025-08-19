@@ -1,0 +1,11 @@
+.todo-lists {
+  padding: 4px;
+  border: 2px solid black;
+  margin: 8px;
+} 
+
+.todo-title {
+  color: blue;
+  padding: 8px;
+  border: 3px solid whitesmoke;
+}
