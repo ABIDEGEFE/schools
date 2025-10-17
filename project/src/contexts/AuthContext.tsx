@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode, useRef } from 'react';
 import { api } from '../utils/api';
 
 
@@ -6,7 +6,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'AD' | 'TC' | 'ST'; // Admin, Teacher, Student
+  role: 'AD' | 'TC' | 'ST' | 'SA'; // Admin, Teacher, Student, Super Admin
   schoolId: string;
   status: 'green' | 'yellow' | 'red';
   is_licensed: boolean;
@@ -23,22 +23,16 @@ interface AuthState {
 }
 
 interface Competition {
+  id?: string;
   status: 'none' | 'pending' | 'accepted' | 'scheduled' | 'ready';
   scheduledDate?: string;
   opponent?: {
     id: string;
     name: string;
-    school: string;
+    school: string; 
   };
+  isReceiver?: boolean;
 }
-
-// interface AuthState {
-//   user: User | null;
-//   selectedSchoolId: string | null;
-//   isAuthenticated: boolean;
-//   loading: boolean;
-
-// }
 
 type AuthAction = 
   | { type: 'LOGIN_SUCCESS'; payload: User }
@@ -57,15 +51,9 @@ const initialState: AuthState = {
   competition: { status: 'none' },
 };
 
+
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
   switch (action.type) {
-    // case 'LOGIN_SUCCESS':
-    //   return {
-    //     ...state,
-    //     user: action.payload,
-    //     isAuthenticated: true,
-    //     loading: false,
-    //   };
     case 'UPDATE_COMPETITION':
       return {
         ...state,
@@ -85,27 +73,10 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         selectedSchoolId: null,
         competition: { status: 'none' },
       };
-    // case 'SET_SELECTED_SCHOOL':
-    //   localStorage.setItem('selectedSchoolId', action.payload);
-    //   return {
-    //     ...state,
-    //     selectedSchoolId: action.payload,
-    //   };
-    // case 'UPDATE_USER':
-    //   return {
-    //     ...state,
-    //     user: state.user ? { ...state.user, ...action.payload } : null,
-    //   };
-    // case 'SET_LOADING':
-    //   return {
-    //     ...state,
-    //     loading: action.payload,
-    //   };
     default:
       return authReducerBase(state, action);
   }
 };
-
 function authReducerBase(state: AuthState, action: AuthAction): AuthState {
   switch (action.type) {
     case 'LOGIN_SUCCESS':
@@ -138,7 +109,7 @@ function authReducerBase(state: AuthState, action: AuthAction): AuthState {
 
 interface AuthContextType {
   state: AuthState;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, schoolID: string) => Promise<void>;
   logout: () => void;
   setSelectedSchool: (schoolId: string) => void;
   updateUser: (updates: Partial<User>) => void;
@@ -162,12 +133,25 @@ export const  useAuth = () => {
 
 export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
-
+  
   const login = async (email: string, password: string, schoolID: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     const userInfo = await api.login(email, password, schoolID);
     // console.log('User info:', userInfo);
-    dispatch({ type: 'LOGIN_SUCCESS', payload: userInfo });
+    // Normalize user shape to include is_licensed etc.
+    const u: any = userInfo as any;
+    const normalized = {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      schoolId: u.school?.id || u.schoolId || u.school,
+      status: u.status,
+      is_licensed: u.is_licensed ?? u.isLicensed ?? false,
+      wins: u.wins ?? 0,
+      profilePicture: u.profile_picture || u.profilePicture || undefined,
+    };
+    dispatch({ type: 'LOGIN_SUCCESS', payload: normalized as User });
   };
 
   const logout = () => {
@@ -189,6 +173,107 @@ export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
   const resetCompetition = () => {
     dispatch({ type: 'RESET_COMPETITION' });
   };
+
+  // Central per-user WebSocket: listen for server broadcasts (competition_update)
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectRef = useRef<number | null>(null);
+  const backoffRef = useRef<number>(1000);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    // connect only when we have a logged-in user and a token
+    const token = sessionStorage.getItem('token');
+    if (!token || !state.user) {
+      // ensure any existing socket is closed
+      try { wsRef.current?.close(); } catch(_) {}
+      wsRef.current = null;
+      return;
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = `${window.location.hostname}:8000`;
+    const wsUrl = `${protocol}//${host}/ws/user/?token=${encodeURIComponent(token)}`;
+
+    // avoid duplicate sockets
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    mountedRef.current = true;
+
+    const connect = () => {
+      if (!mountedRef.current) return;
+      try {
+        const socket = new WebSocket(wsUrl);
+        socket.onopen = () => {
+          console.debug('AuthContext: WebSocket connected', wsUrl);
+          backoffRef.current = 1000; // reset backoff on success
+        };
+        socket.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data as string);
+            if (msg?.type === 'competition_update' && msg.competition) {
+              console.debug('AuthContext: received competition_update message', msg);
+              const comp = msg.competition as any;
+              // Map server payload into our Competition shape and update context
+              const opponent = comp.sender?.id === state.user?.id ? comp.receiver : comp.sender;
+              const isReceiver = comp.receiver?.id === state.user?.id;
+              dispatch({ type: 'UPDATE_COMPETITION', payload: {
+                id: comp.id,
+                status: comp.status,
+                scheduledDate: comp.scheduledDate,
+                opponent: opponent ? { id: opponent.id, name: opponent.name, school: opponent.school } : undefined,
+                isReceiver,
+              } });
+            }
+          } catch (err) {
+            console.error('AuthContext: error parsing WS message', err, ev.data);
+          }
+        };
+        socket.onclose = (ev) => {
+          console.debug('AuthContext: WebSocket closed', ev.code, ev.reason);
+          wsRef.current = null;
+          // schedule reconnect if still mounted
+          if (mountedRef.current) {
+            const delay = Math.min(backoffRef.current, 30000);
+            reconnectRef.current = window.setTimeout(() => {
+              reconnectRef.current = null;
+              backoffRef.current = Math.min(backoffRef.current * 1.5, 30000);
+              connect();
+            }, delay);
+          }
+        };
+        socket.onerror = (ev) => {
+          console.error('AuthContext: WebSocket error', ev);
+          // error will typically be followed by close; let close schedule reconnect
+        };
+        wsRef.current = socket;
+      } catch (err) {
+        console.error('AuthContext: failed to open WebSocket', err);
+        // schedule reconnect
+        if (mountedRef.current) {
+          const delay = Math.min(backoffRef.current, 30000);
+          reconnectRef.current = window.setTimeout(() => {
+            reconnectRef.current = null;
+            backoffRef.current = Math.min(backoffRef.current * 1.5, 30000);
+            connect();
+          }, delay);
+        }
+      }
+    };
+
+    connect();
+
+    return () => {
+      mountedRef.current = false;
+      if (reconnectRef.current) {
+        clearTimeout(reconnectRef.current);
+        reconnectRef.current = null;
+      }
+      try { wsRef.current?.close(); } catch(_) {}
+      wsRef.current = null;
+    };
+  }, [state.user?.id]);
 
   const value = {
     state,

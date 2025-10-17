@@ -5,9 +5,8 @@ import { api } from '../../utils/api';
 import { Announcement } from '../../data/mockData';
 import { Button } from '../../components/common/Button';
 import { Megaphone, AlertTriangle } from 'lucide-react';
-import { useRef } from 'react';
 
-export const AnnouncementManagerPage: React.FC = () => {
+export const SAannouncementPage: React.FC = () => {
   const { state } = useAuth();
   const { addNotification } = useNotifications();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -17,6 +16,7 @@ export const AnnouncementManagerPage: React.FC = () => {
     title: '',
     content: '',
     urgent: false,
+    is_public: false
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,10 +31,10 @@ export const AnnouncementManagerPage: React.FC = () => {
         content: formData.content,
         urgent: formData.urgent,
         authorId: state.user.id,
-        schoolId: state.user.schoolId,
+        schoolId: formData.is_public ? null : state.user.school.id || null,
       } as any);
 
-      setFormData({ title: '', content: '', urgent: false });
+      setFormData({ title: '', content: '', urgent: false, is_public: false });
       addNotification({
         message: 'Announcement posted successfully!',
         type: 'success'
@@ -115,6 +115,17 @@ export const AnnouncementManagerPage: React.FC = () => {
             <label htmlFor="urgent" className="ml-2 block text-sm text-gray-900 flex items-center">
               <AlertTriangle className="mr-1 h-4 w-4 text-red-500" />
               Mark as urgent
+            </label>
+            <label className="ml-6 flex items-center">
+              <input
+                type="checkbox"
+                id="is_public"
+                name="is_public"
+                checked={formData.is_public}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <span className="ml-2 text-sm text-gray-900">Make Public</span>
             </label>
           </div>
 

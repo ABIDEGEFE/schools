@@ -6,25 +6,59 @@ import { Button } from '../components/common/Button';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { LicenseBadge } from '../components/common/LicenseBadge';
 import { Upload, User, Mail, Trophy, Sword } from 'lucide-react';
+import { ReceiverModal } from '../components/competition/ReceiverModal';
+import { SenderModal } from '../components/competition/SenderModal';
+import { CommonModal } from '../components/competition/CommonModal';
 import { useNavigate } from 'react-router-dom';
 
 export const UserProfilePage: React.FC = () => {
-  const { state, updateUser, resetCompetition } = useAuth();
+  const { state, updateUser, updateCompetition, resetCompetition } = useAuth();
   const { addNotification } = useNotifications();
   const [uploading, setUploading] = useState(false);
   const [now, setNow] = useState(new Date());
+
+  // WebSocket is handled centrally in AuthContext now
+
   const navigate = useNavigate();
   const user = state.user;
   const competition = state.competition;
+  const [comp] = useState<any | null>(null);
+ 
+  console.log('value ofo comp in user profile page', comp);
+  console.log('competition id in context', competition.id);
 
-  console.log(user);
-  // Timer to update current time for "start competition"
+  const [isSenderModalOpen, setSenderModalOpen] = useState(false);
+  const [isReceiverModalOpen, setReceiverModalOpen] = useState(false);
+  const [isCommonModalOpen, setCommonModalOpen] = useState(false);
+
+  // Open the appropriate modal automatically when competition state changes
   useEffect(() => {
-    if (competition.status === 'scheduled') {
-      const timer = setInterval(() => setNow(new Date()), 1000);
+    if (competition?.status === 'pending') {
+      if (competition.isReceiver) {
+        setReceiverModalOpen(true);
+      } else {
+        setSenderModalOpen(true);
+      }
+    } else {
+      // close modals for other statuses
+      setReceiverModalOpen(false);
+      setSenderModalOpen(false);
+    }
+  }, [competition?.status, competition?.isReceiver]);
+
+  // token and socket are now managed by AuthContext
+
+  // Real-time updates for competitions are handled centrally in AuthContext via a per-user WebSocket.
+
+ // create useEffect for updating now every minute if there is change in competition status to accepted and there is a scheduled date
+
+
+  useEffect(() => {
+    if (competition.status === 'accepted' && competition.scheduledDate) {
+      const timer = setInterval(() => setNow(new Date()), 60000);
       return () => clearInterval(timer);
     }
-  }, [competition.status]);
+  }, [competition.status, competition.scheduledDate]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,16 +115,28 @@ export const UserProfilePage: React.FC = () => {
         Waiting for opponent to accept...
       </div>
     );
+    competitionAction = () => {
+      // open either sender or receiver modal depending on who the current user is
+      if (comp?.receiver.id === user?.id) {
+        console.log('value for comp on receiver', comp);
+        setReceiverModalOpen(true);
+      } else {
+        setSenderModalOpen(true);
+      }
+    };
   } else if (competition.status === 'accepted' || competition.status === 'scheduled') {
     competitionLabel = 'Upcoming Competition';
     competitionBg = 'bg-green-100 animate-pulse';
     competitionAnimated = true;
     competitionInfo = (
       <div className="text-sm text-green-700 mt-2">
-        Competition scheduled with <span className="font-semibold">{competition.opponent?.name}</span> from <span className="font-semibold">{competition.opponent?.school}</span>.<br />
+  Competition scheduled with <span className="font-semibold">{competition.opponent?.name}</span> from <span className="font-semibold">{(competition.opponent?.school as any)?.name || competition.opponent?.school || ''}</span>.<br />
         Date: <span className="font-semibold">{competition.scheduledDate ? new Date(competition.scheduledDate).toLocaleString() : '' }</span>
       </div>
     );
+    competitionAction = () => {
+      setCommonModalOpen(true);
+    };
     // If the scheduled date is reached, allow to start
     if (competition.status === 'scheduled' && competition.scheduledDate && now >= new Date(competition.scheduledDate)) {
       competitionLabel = 'Start Competition';
@@ -116,7 +162,7 @@ export const UserProfilePage: React.FC = () => {
   }
 
   if (!user) return null;
-
+  console.log('opponent school type', competition.opponent?.school)
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
@@ -223,7 +269,7 @@ export const UserProfilePage: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     {user.is_licensed ? (
                       <>
-                        <LicenseBadge is_licensed={user.isLicensed} size="sm" />
+                        <LicenseBadge isLicensed={user.is_licensed} size="sm" />
                         <span className="text-green-600 font-medium">Licensed</span>
                       </>
                     ) : (
@@ -286,6 +332,53 @@ export const UserProfilePage: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+
+    {/* Competition Modals */}
+    <>
+    {competition.id && 
+         <SenderModal
+        isOpen={isSenderModalOpen}
+        onClose={() => setSenderModalOpen(false)}
+        onCancel={async () => {
+          if (!competition.id) return setSenderModalOpen(false);
+          const response = await api.updateCompetition(competition.id as string, { status: 'none' });
+          updateCompetition({ status: response.status });
+          setSenderModalOpen(false);
+        }}
+  opponentName={competition.opponent?.name || ''}
+  opponentSchool={typeof competition.opponent?.school === 'object' ? (competition.opponent?.school as any)?.name: ''}
+      />
+      }
+
+     {competition.id && 
+      <ReceiverModal
+        isOpen={isReceiverModalOpen}
+        onClose={() => setReceiverModalOpen(false)}
+        onAccept={async () => {
+            if (!competition.id) return;
+            const response = await api.updateCompetition(competition.id as string, { status: 'accepted' });
+            updateCompetition({ status: response.status});
+            setReceiverModalOpen(false);
+            setCommonModalOpen(true);
+
+        }}
+        onReject={async () => {
+            if (!competition.id) return;
+            const response = await api.updateCompetition(competition.id as string, { status: 'none' });
+            updateCompetition({ status: response.status });
+            setReceiverModalOpen(false);
+          }
+        }
+  senderName={competition.opponent?.name || ''}
+      />
+     }
+
+      <CommonModal
+        isOpen={isCommonModalOpen}
+        onClose={() => setCommonModalOpen(false)}
+        scheduledDate={competition.scheduledDate}
+      />
+
+    </>
+  </div>
+)};

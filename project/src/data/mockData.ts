@@ -3,6 +3,10 @@ export interface School {
   name: string;
   status: 'active' | 'inactive';
   address: string;
+  contact_email?: string;
+  contact_phone?: string;
+  number_of_students?: number;
+  number_of_teachers?: number;
 }
 
 export interface User {

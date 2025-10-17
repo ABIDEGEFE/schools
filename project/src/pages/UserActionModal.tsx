@@ -6,15 +6,21 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { LicenseBadge } from '../components/common/LicenseBadge';
 import { UserIcon, MessageCircle, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../utils/api';
+import { useNotifications } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
+import { School } from '../data/mockData';
+import { PasswordResetPage } from './PasswordResetPage';
 
 
 interface UserActionsModalProps {
+  selectedSchool: School | null;
   user: User | null;
   currentUser: User | null;
   isOpen: boolean;
   onClose: () => void;
   onSendMessage: (user: User) => void;
-  onSendCompetitionRequest: (user: User) => void;
+  // onSendCompetitionRequest removed; handled inside this modal via API
   selectedUserId?: string | null;
   selectedSchoolId?: string | null;
 }
@@ -22,14 +28,16 @@ interface UserActionsModalProps {
 
 export const UserActionsModal: React.FC<UserActionsModalProps> = ({
   // selectedUserId,
+  selectedSchool,
   user,
   currentUser,
   isOpen,
   onClose,
   onSendMessage,
-  onSendCompetitionRequest
 }) => {
   const navigate = useNavigate();
+  const { addNotification } = useNotifications();
+  const { updateCompetition } = useAuth();
   
   if (!user || !currentUser) return null;
   const canCompete = currentUser?.status === user.status;
@@ -50,11 +58,26 @@ export const UserActionsModal: React.FC<UserActionsModalProps> = ({
     onClose();
   };
 
+  const handleSendCompetitionRequest = async () => {
+    
+    try {
+      const response = await api.sendCompetition({ senderId: currentUser!.id, receiverId: user.id, schoolId: currentUser!.schoolId });
+      updateCompetition({id:response.id, status: 'pending', opponent: { id: user.id, name: user.name, school: selectedSchool || null  } });
+      addNotification({ message: `Competition request sent to ${user.name}`, type: 'success' });
+    } catch (err: any) {
+      addNotification({ message: err?.message || 'Failed to send competition request', type: 'error' });
+    } finally {
+      onClose();
+    }
+  };
+
   // Handler for navigating to user's bank/materials page (for sellers)
   // const handleNavigateToBank = () => {
   //   navigate(`/bank?userId=${user.id}`);
   //   onClose();
   // };
+
+  console.log('selected school is ', selectedSchool);
 
   return (
     <Modal
@@ -104,7 +127,7 @@ export const UserActionsModal: React.FC<UserActionsModalProps> = ({
           <Button
             variant={canCompete ? "success" : "outline"}
             disabled={!canCompete}
-            onClick={() => onSendCompetitionRequest(user)}
+            onClick={handleSendCompetitionRequest}
             className="w-full flex items-center justify-center space-x-2"
           >
             <Trophy size={16} />

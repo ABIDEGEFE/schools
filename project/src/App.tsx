@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -24,8 +23,15 @@ import { UserManagementPage } from './pages/admin/UserManagementPage';
 import { PerformanceMonitorPage } from './pages/admin/PerformanceMonitorPage';
 import { AnnouncementManagerPage } from './pages/admin/AnnouncementManagerPage';
 
+// System Admin Pages
+import { SchoolManagementPage } from './pages/systemAdmin/SchoolManagementPage';
+import { SchoolPerformanceMonitorPage } from './pages/systemAdmin/SchoolPerformanceMonitorPage';
+import { SAannouncementPage } from './pages/systemAdmin/SAannouncementPage';
+
 function App() {
+  
   return (
+    
     <NotificationProvider>
       <AuthProvider>
         <Router> 
@@ -44,6 +50,31 @@ function App() {
                 </Layout>
               </ProtectedRoute>
             } />
+
+            {/* System Admin Routes */}
+            <Route path="/system-admin" element={
+              <ProtectedRoute requiredRole="SA">
+                <Layout>
+                  <SchoolManagementPage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/system-admin/performance" element={
+              <ProtectedRoute requiredRole="SA">
+                <Layout>
+                  <SchoolPerformanceMonitorPage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/system-admin/announcements" element={
+              <ProtectedRoute requiredRole="SA">
+                <Layout>
+                  <SAannouncementPage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            {/* General Authenticated User Routes */}
             <Route path="/marketplace" element={
             <ProtectedRoute>
               <Layout>
@@ -122,9 +153,10 @@ function App() {
             {/* Redirect unknown routes */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </Router>
+          </Router>
       </AuthProvider>
     </NotificationProvider>
+    
   );
 }
 

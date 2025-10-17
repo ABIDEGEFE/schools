@@ -66,6 +66,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Vite
 ]
 
+
 ROOT_URLCONF = 'school_backend.urls'
 
 TEMPLATES = [

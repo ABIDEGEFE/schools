@@ -6,7 +6,12 @@ import uuid
 class SchoolSerializer(serializers.ModelSerializer):
 	class Meta:
 		model = models.School
-		fields = ['id', 'name', 'status', 'address']
+		# include additional contact and counts fields the frontend needs
+		fields = [
+			'id', 'name', 'status', 'address',
+			'contact_email', 'contact_phone', 'number_of_students', 'number_of_teachers'
+		]
+		# read_only_fields = ['id']
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -95,9 +100,45 @@ class AnnouncementSerializer(serializers.ModelSerializer):
 	school = SchoolSerializer(read_only=True)
 	author = UserSerializer(read_only=True)
 
+	# Accept write-only fields for creation
+	schoolId = serializers.CharField(write_only=True, required=False, allow_null=True)
+	authorId = serializers.CharField(write_only=True, required=False, allow_null=True)
+
 	class Meta:
 		model = models.Announcement
-		fields = ['id', 'title', 'content', 'school', 'author', 'created_at', 'urgent']
+		fields = ['title', 'content', 'school', 'schoolId', 'author', 'authorId', 'created_at', 'urgent']
+
+	def _resolve_school(self, school_id):
+		if not school_id:
+			return None
+		try:
+			return models.School.objects.get(id=school_id)
+		except models.School.DoesNotExist:
+			raise serializers.ValidationError({'schoolId': 'School with this id does not exist.'})
+
+	def _resolve_author(self, author_id):
+		if not author_id:
+			return None
+		try:
+			return models.User.objects.get(id=author_id)
+		except models.User.DoesNotExist:
+			raise serializers.ValidationError({'authorId': 'User with this id does not exist.'})
+
+	def create(self, validated_data):
+		school_id = validated_data.pop('schoolId', None)
+		author_id = validated_data.pop('authorId', None)
+
+		if school_id:
+			validated_data['school'] = self._resolve_school(school_id)
+		else:
+			validated_data['school'] = None
+
+		if author_id:
+			validated_data['author'] = self._resolve_author(author_id)
+		# Auto-generate id
+		if not validated_data.get('id'):
+			validated_data['id'] = str(uuid.uuid4())
+		return super().create(validated_data)
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -133,4 +174,51 @@ class ConversationSerializer(serializers.ModelSerializer):
 	class Meta:
 		model = models.Conversation
 		fields = ['id', 'participants', 'last_message', 'unread_count']
+
+
+class CompetitionSerializer(serializers.ModelSerializer):
+	sender = UserSerializer(read_only=True)
+	receiver = UserSerializer(read_only=True)
+
+	senderId = serializers.CharField(write_only=True, required=False)
+	receiverId = serializers.CharField(write_only=True, required=False)
+
+	class Meta:
+		model = models.Competition
+		fields = ['id', 'sender', 'receiver', 'status', 'scheduled_date', 'school', 'senderId', 'receiverId', 'created_at', 'updated_at']
+		read_only_fields = ['id', 'created_at', 'updated_at']
+
+	def _resolve_user(self, user_id):
+		if not user_id:
+			return None
+		try:
+			return models.User.objects.get(id=user_id)
+		except models.User.DoesNotExist:
+			raise serializers.ValidationError({'user': 'User with this id does not exist.'})
+
+	def create(self, validated_data):
+		sender_id = validated_data.pop('senderId', None)
+		receiver_id = validated_data.pop('receiverId', None)
+
+		if sender_id:
+			validated_data['sender'] = self._resolve_user(sender_id)
+		if receiver_id:
+			validated_data['receiver'] = self._resolve_user(receiver_id)
+
+		# Auto-generate id if missing
+		if not validated_data.get('id'):
+			import uuid
+			validated_data['id'] = str(uuid.uuid4())
+
+		return super().create(validated_data)
+
+	def update(self, instance, validated_data):
+		# allow setting scheduled_date and status via partial update
+		sender_id = validated_data.pop('senderId', None)
+		receiver_id = validated_data.pop('receiverId', None)
+		if sender_id:
+			instance.sender = self._resolve_user(sender_id)
+		if receiver_id:
+			instance.receiver = self._resolve_user(receiver_id)
+		return super().update(instance, validated_data)
 

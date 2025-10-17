@@ -15,8 +15,10 @@ export const AnnouncementsPage: React.FC = () => {
   useEffect(() => {
     const fetchAnnouncements = async () => {
       if (state.user?.schoolId) {
+        console.log('Fetching announcements for school ID:', state.user.schoolId);
         try {
           const announcementData = await api.getAnnouncements(state.user.schoolId);
+          console.log('fetched announcements', announcementData);
           setAnnouncements(announcementData);
           markAllRead();
         } catch (error) {
@@ -28,11 +30,51 @@ export const AnnouncementsPage: React.FC = () => {
           setLoading(false);
         }
       }
+      else{
+        console.log('No user or school ID available for', state.user);
+      }
     };
 
     fetchAnnouncements();
+    // Open websocket for live announcements
+    const token = sessionStorage.getItem('token');
+    const wsUrl = `ws://${window.location.hostname}:8000/ws/announcements/?token=${token}`;
+    let ws: WebSocket | null = null;
+    try {
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          console.log('WebSocket message received:', data);
+          if (data.type === 'announcement_message' && data.announcement) {
+            const ann = data.announcement;
+            // normalize created_at to createdAt for frontend
+            const normalized = {
+              ...ann,
+              createdAt: ann.created_at || ann.createdAt || new Date().toISOString(),
+            };
+            // visibility: show if global or school matches
+            const userSchoolId = state.user?.schoolId;
+            const annSchoolId = ann.school?.id || ann.school;
+            if (!annSchoolId || annSchoolId === userSchoolId || state.user?.role === 'SA') {
+              setAnnouncements(prev => [normalized, ...prev]);
+              addNotification({ message: `New announcement: ${normalized.title}`, type: 'info' });
+            }
+          }
+        } catch (err) {
+          console.log('Failed to parse announcement WS message', err);
+          console.error('Failed to parse announcement WS message', err);
+        }
+      };
+    } catch (err) {
+      console.warn('Announcement WS not available', err);
+    }
+
+    return () => {
+      try { ws?.close(); } catch(_) {}
+    };
     
-  }, [state.user?.schoolId, addNotification, markAllRead]);
+  }, []);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -70,8 +112,8 @@ export const AnnouncementsPage: React.FC = () => {
             <AlertTriangle className="mr-2 h-5 w-5" />
             Urgent Announcements
           </h2>
-          {urgentAnnouncements.map((announcement) => (
-            <div key={announcement.id} className="bg-red-50 border border-red-200 rounded-lg p-6">
+          {urgentAnnouncements.map((announcement, index) => (
+            <div key={index} className="bg-red-50 border border-red-200 rounded-lg p-6">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center space-x-2">
                   <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />

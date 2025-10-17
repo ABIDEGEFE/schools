@@ -17,7 +17,7 @@ class LoginView(APIView):
             user = User.objects.get(email=email)
             # Use Django's password hasher check to validate the password.
             # This avoids problems when authenticate() expects a different username field.
-            if user.check_password(password):
+            if user.check_password(password):  # In production, use check_password method
                 print("Password is valid for user:", user.email, user.id)
                 payload = {
                     'schoolID': user.school.id if user.school else None,
@@ -66,9 +66,7 @@ class UserUpdateView(APIView):
 class UserRegisterView(APIView):
     def post(self, request):
         serializer = UserSerializer(data=request.data)
-        print("Serializer data:", request.data)
         if serializer.is_valid():
-            print("Serializer is validddddddddddd")
             serializer.save()
             return Response(serializer.data, status=201)
         print("Serializer errors:", serializer.errors)
@@ -138,3 +136,6 @@ class MessageListView(APIView):
         serializer = MessageSerializer(messages, many=True)
         print("Message history between", requester_id, "and", other_user_id, ":", serializer.data)
         return Response(serializer.data)
+
+
+

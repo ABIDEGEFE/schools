@@ -28,8 +28,8 @@ export const MessagesPage: React.FC = () => {
   const location = useLocation();
   const { selectedUserId } = location.state || {};
   const [isOnline, setIsOnline] = useState(false);
-  // const params = new URLSearchParams(location.search);
-  // const selectedUserId = params.get('userId');
+
+  console.log('Updated competition state:', state.competition);
 
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');

@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { Button } from '../common/Button';
 import { Bell, LogOut, User } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Modal } from '../common/Modal';
 import { Check, Trash2 } from 'lucide-react'; 
 
@@ -26,7 +26,9 @@ export const Header: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <h1 className="text-xl font-bold text-blue-600">Schools</h1>
+            <Link to="/" className="flex items-center">
+              <h1 className="text-xl font-bold text-blue-600">Schools</h1>
+            </Link>
           </div>
 
           {state.isAuthenticated && (

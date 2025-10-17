@@ -21,6 +21,7 @@ router.register(r'materials', views.MaterialViewSet)
 router.register(r'comments', views.CommentViewSet)
 router.register(r'messages', views.MessageViewSet)
 router.register(r'conversations', views.ConversationViewSet)
+router.register(r'competitions', views.CompetitionViewSet)
 
 urlpatterns = router.urls
 urlpatterns += [
@@ -30,8 +31,10 @@ urlpatterns += [
     path('register/', UserRegisterView.as_view(), name='user-register'),
     path('delete/users/<str:id>/', views.DeleteUserView.as_view(), name='user-delete'),
     path('schools/', SchoolListView.as_view(), name='school-list'),
+    path('schools/status/<str:status>/', views.StatusSchoolListView.as_view(), name='school-status-list'),
     path('users/status/<str:status>/<str:school_id>/', StatusUserListView.as_view(), name='user-status-list'),
     path('messages/history/<str:other_user_id>/', MessageListView.as_view(), name='message-history'),
+    # Announcements are exposed via the router at /api/announcements/
 ]
 
 # `http://localhost:8000/api/schools/${schoolId}/users/`
@@ -39,3 +42,4 @@ urlpatterns += [
 # http://localhost:8000/api/register/'
 # 'http://localhost:8000/api/schools/'
 # http://localhost:8000/api/users/status/${status}/
+# 'http://localhost:8000/api/announcements/'

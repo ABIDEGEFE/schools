@@ -18,14 +18,14 @@ export const UserManagementPage: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const user = state.user;
-  const school = user?.school;
+  const schoolId = user?.schoolId;
 
 
   useEffect(() => {
     const fetchUsers = async () => {
-      if (school.id) {
+      if (schoolId) {
         try {
-          const userData = await api.getUsers(school.id);
+          const userData = await api.getUsers(schoolId);
           setUsers(userData);
         } catch (error) {
           addNotification({
@@ -39,7 +39,7 @@ export const UserManagementPage: React.FC = () => {
     };
 
     fetchUsers();
-  }, [school.id, addNotification]);
+  }, [schoolId, addNotification]);
 
   const handleAddUser = () => {
     setEditingUser(null);
@@ -152,7 +152,7 @@ export const UserManagementPage: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className="text-sm text-gray-900">
-                    {user.role === 'AD' ? 'Admin' : user.role === 'TC' ? 'Teacher' : 'Student'}
+                    {user.role === 'AD' ? 'Admin' : user.role === 'TC' ? 'Teacher' : user.role === 'SA' ? 'System Admin' : 'Student'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -191,7 +191,7 @@ export const UserManagementPage: React.FC = () => {
         onClose={() => setModalOpen(false)}
         onSave={handleSaveUser}
         user={editingUser}
-        schoolId={school.id || ''}
+        schoolId={schoolId || ''}
       />
 
       <DeleteConfirmModal
@@ -217,7 +217,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: 'ST' as 'AD' | 'TC' | 'ST',
+    role: 'ST' as 'AD' | 'TC' | 'ST' | 'SA',
     schoolId: ''
   });
 
@@ -311,6 +311,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
             <option value="ST">Student</option>
             <option value="TC">Teacher</option>
             <option value="AD">Admin</option>
+            <option value="SA">System Admin</option>
           </select>
         </div>
 

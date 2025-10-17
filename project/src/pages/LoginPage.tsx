@@ -35,6 +35,8 @@ export const LoginPage: React.FC = () => {
       if (user?.role === 'AD') {
 
         navigate('/admin-portal');
+      } else if (user?.role === 'SA') {
+        navigate('/system-admin');
       } else {
         navigate('/profile');
       }

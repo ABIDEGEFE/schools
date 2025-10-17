@@ -1,15 +1,10 @@
 import { School, User, Exam, Announcement, Material, Question } from '../data/mockData';
-import { mockSchools, mockUsers, mockExams, mockAnnouncements, mockMaterials, mockQuestions } from '../data/mockData';
-import { useAuth } from '../contexts/AuthContext';
+import { mockExams, mockMaterials, mockQuestions } from '../data/mockData';
 // Mock API functions - replace with actual axios calls when integrating with Django
 // Use sessionStorage so token is scoped to a single browser tab/window
 const token = () => sessionStorage.getItem('token');
 
-const schoolIDFunction = () => {
-  const { state } = useAuth();
-  return state.selectedSchoolId;
-}
-//  console.log('Selected school ID in api.ts:', setSelectedSchool);
+// NOTE: this file used some mock helpers during initial scaffolding; keep focused helpers only
 export const api = {
 
     login: async (email: string, password: string, schoolID: string): Promise<User> => {
@@ -32,7 +27,7 @@ export const api = {
       return data.user as User;
     },
 
-  resetPassword: async (email: string, token: string, newPassword: string): Promise<void> => {
+  resetPassword: async (email: string, _token: string, _newPassword: string): Promise<void> => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     // Mock password reset
     console.log('Password reset for:', email);
@@ -55,7 +50,89 @@ export const api = {
     return data as School[];
   },
 
+  createSchool: async (schoolData: Omit<School, 'id'>): Promise<School> => {
+    const response = await fetch('http://localhost:8000/api/schools/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`,
+      },
+      body: JSON.stringify(schoolData),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Create failed' }));
+      throw new Error(err.detail || 'Failed to create school');
+    }
+    const newSchool = await response.json();
+    return newSchool as School;
+  },
+
+  updateSchool: async (id: string, updates: Partial<School>): Promise<School> => {
+    console.log("API updateSchool called with id:", id, "and updates:", updates);
+    const response = await fetch(`http://localhost:8000/api/schools/${id}/`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`,
+      },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Update failed' }));
+      throw new Error(err.detail || 'Failed to update school');
+    }
+    const updated = await response.json();
+    return updated as School;
+  },
+
+  deleteSchool: async (id: string): Promise<void> => {
+    const response = await fetch(`http://localhost:8000/api/schools/${id}/`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`,
+      },
+    });
+    if (response.status === 204 || response.ok) {
+      return;
+    }
+    const err = await response.json().catch(() => ({ detail: 'Delete failed' }));
+    throw new Error(err.detail || 'Failed to delete school');
+  },
+
+  getSchoolsByStatus: async (status: 'active' | 'inactive'): Promise<School[]> => {
+    const response = await fetch(`http://localhost:8000/api/schools/status/${status}/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch schools by status');
+    }
+    const data = await response.json();
+    return data as School[];
+  },
+
   // Users
+  registerAdmin: async (adminData: { name: string; email: string; password: string; schoolId: string; role: string }): Promise<User> => {
+    const response = await fetch('http://localhost:8000/api/register/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`, // Include token in headers
+      },
+      body: JSON.stringify(adminData),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Registration failed' }));
+      throw new Error(err.detail || 'Failed to register admin');
+    }
+    const newAdmin = await response.json();
+    return newAdmin as User; 
+  },
+
   getUsers: async (schoolId: string): Promise<User[]> => {
     const response = await fetch(`http://localhost:8000/api/schools/${schoolId}/users/`, {
       method: 'GET',
@@ -168,18 +245,65 @@ export const api = {
     return data;
   },
 
+  // Competitions
+  sendCompetition: async (payload: { senderId: string; receiverId: string; schoolId?: string }): Promise<any> => {
+    const response = await fetch('http://localhost:8000/api/competitions/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Failed to send competition request' }));
+      throw new Error(err.detail || 'Failed to send competition request');
+    }
+    return await response.json();
+  },
+
+  updateCompetition: async (id: string, updates: Partial<any>): Promise<any> => {
+    const response = await fetch(`http://localhost:8000/api/competitions/${id}/`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`,
+      },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Failed to update competition' }));
+      throw new Error(err.detail || 'Failed to update competition');
+    }
+    return await response.json();
+  },
+
+  getCompetitionBetween: async (userA: string, userB: string): Promise<any[]> => {
+    const response = await fetch(`http://localhost:8000/api/competitions/?sender=${userA}&receiver=${userB}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch competitions');
+    }
+    return await response.json();
+  },
+
   // Exams
   getExams: async (): Promise<Exam[]> => {
     await new Promise(resolve => setTimeout(resolve, 500));
     return mockExams;
   },
 
-  getExamQuestions: async (examId: string): Promise<Question[]> => {
+  getExamQuestions: async (_examId: string): Promise<Question[]> => {
     await new Promise(resolve => setTimeout(resolve, 500));
     return mockQuestions;
   },
 
-  submitExam: async (examId: string, answers: number[]): Promise<{ score: number; passed: boolean }> => {
+  submitExam: async (_examId: string, answers: number[]): Promise<{ score: number; passed: boolean }> => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     const correctAnswers = mockQuestions.map(q => q.correctAnswer);
     const score = answers.reduce((acc, answer, index) => {
@@ -191,19 +315,36 @@ export const api = {
 
   // Announcements
   getAnnouncements: async (schoolId: string): Promise<Announcement[]> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return mockAnnouncements.filter(a => a.schoolId === schoolId);
+    const response = await fetch('http://localhost:8000/api/announcements/', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch announcements');
+    }
+    const data = await response.json();
+    // normalize backend created_at to createdAt and filter by school if needed
+    const normalized = data.map((a: any) => ({ ...a, createdAt: a.created_at || a.createdAt }));
+    return normalized.filter((a: any) => !a.school || a.school.id === schoolId || a.author?.role === 'SA');
   },
 
   createAnnouncement: async (announcement: Omit<Announcement, 'id' | 'createdAt'>): Promise<Announcement> => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const newAnnouncement: Announcement = {
-      ...announcement,
-      id: (mockAnnouncements.length + 1).toString(),
-      createdAt: new Date().toISOString(),
-    };
-    mockAnnouncements.push(newAnnouncement);
-    return newAnnouncement;
+    const response = await fetch('http://localhost:8000/api/announcements/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json', 
+        'Authorization': `Bearer ${token()}`,
+      },
+      body: JSON.stringify(announcement),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to create announcement');
+    }
+    const data = await response.json();
+    return data as Announcement;  
   },
 
   // Materials

@@ -25,6 +25,12 @@ export const Sidebar: React.FC = () => {
     { to: '/admin-portal/announcements', icon: Megaphone, label: 'Announcements' },
   ];
 
+  const systemAdminLinks = [
+    { to: '/system-admin/announcements', icon: Megaphone, label: 'Manage Announcements' },
+    { to: '/system-admin', icon: School, label: 'Manage Schools' },
+    { to: '/system-admin/performance', icon: BarChart3, label: 'Schools Performance' },
+  ];
+
   const userLinks = [
     { to: '/profile', icon: User, label: 'Profile' },
     { to: '/explore/schools', icon: School, label: 'Explore Schools' },
@@ -38,7 +44,7 @@ export const Sidebar: React.FC = () => {
     { to: '/bank', icon: Banknote, label: 'Material Bank' },
   ];
 
-  const links = user.role === 'AD' ? adminLinks : [
+  const links = user.role === 'AD' ? adminLinks : user.role === 'SA' ? systemAdminLinks : [
     ...userLinks,
     ...(user.is_licensed ? licenseOnlyLinks : [])
   ];
