@@ -31,7 +31,7 @@ export const AnnouncementManagerPage: React.FC = () => {
         content: formData.content,
         urgent: formData.urgent,
         authorId: state.user.id,
-        schoolId: state.user.schoolId,
+        schoolId: state.user.school.id,
       } as any);
 
       setFormData({ title: '', content: '', urgent: false });

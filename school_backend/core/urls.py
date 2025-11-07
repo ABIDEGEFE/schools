@@ -1,14 +1,10 @@
 from rest_framework.routers import DefaultRouter
 from . import views
-from django.urls import path
-from school_backend.views import (
-    LoginView,
-    SchoolUsersView,
-    UserUpdateView,
-    UserRegisterView,
-    SchoolListView,
-    StatusUserListView,
-    MessageListView,
+from django.urls import include, path
+
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
 )
 
 router = DefaultRouter()
@@ -23,23 +19,10 @@ router.register(r'messages', views.MessageViewSet)
 router.register(r'conversations', views.ConversationViewSet)
 router.register(r'competitions', views.CompetitionViewSet)
 
-urlpatterns = router.urls
-urlpatterns += [
-    path('login/<str:schoolID>/', LoginView.as_view(), name='login'),
-    path('schools/<str:school_id>/users/', SchoolUsersView.as_view(), name='school-users'),
-    path('update/users/<str:id>/', UserUpdateView.as_view(), name='user-detail'),
-    path('register/', UserRegisterView.as_view(), name='user-register'),
-    path('delete/users/<str:id>/', views.DeleteUserView.as_view(), name='user-delete'),
-    path('schools/', SchoolListView.as_view(), name='school-list'),
-    path('schools/status/<str:status>/', views.StatusSchoolListView.as_view(), name='school-status-list'),
-    path('users/status/<str:status>/<str:school_id>/', StatusUserListView.as_view(), name='user-status-list'),
-    path('messages/history/<str:other_user_id>/', MessageListView.as_view(), name='message-history'),
-    # Announcements are exposed via the router at /api/announcements/
+urlpatterns = [
+    path('', include(router.urls)),
+    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # Legacy/custom endpoints consolidated into core.views
 ]
-
-# `http://localhost:8000/api/schools/${schoolId}/users/`
-# http://localhost:8000/api/users/${id}/
-# http://localhost:8000/api/register/'
-# 'http://localhost:8000/api/schools/'
-# http://localhost:8000/api/users/status/${status}/
-# 'http://localhost:8000/api/announcements/'
+ 

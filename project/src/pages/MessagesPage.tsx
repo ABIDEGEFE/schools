@@ -27,9 +27,9 @@ export const MessagesPage: React.FC = () => {
   const { state } = useAuth();
   const location = useLocation();
   const { selectedUserId } = location.state || {};
-  const [isOnline, setIsOnline] = useState(false);
+  // online presence placeholder (not used yet)
 
-  console.log('Updated competition state:', state.competition);
+  // console.log('Updated competition state:', state.competition);
 
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
@@ -44,25 +44,59 @@ export const MessagesPage: React.FC = () => {
 
     (async () => {
       try {
+        // load users first (used to map participant meta)
         const users = await api.getAllUsers();
         if (!mounted) return;
-        // exclude current user
         const filtered = users.filter(u => u.id !== state.user?.id);
         setAllUsers(filtered);
-        console.log('All users loaded', filtered);
 
-        // auto-select from query param if present (only after users loaded)
+        // load existing conversations (threads) and map them into the local Conversation shape
+        const convs = await api.getConversations();
+        // console.log('fetched conversations', convs);
+        if (!mounted) return;
+        // Filter only conversations that include current user
+        
+        const myConvs = convs.filter((c: any) => {
+          console.log('conversation participants', c.participants);
+          return c.participants && c.participants.some((p: any) => p.id === state.user?.id);
+        });
+
+        const mapped: Conversation[] = myConvs.map((c: any) => {
+          // pick the other participant as the conversation participant
+          const other = c.participants.find((p: any) => p.id !== state.user?.id) || { id: 'unknown', name: 'Unknown' };
+          return {
+            id: c.id,
+            participantId: other.id,
+            participantName: other.name || other.email || 'User',
+            lastMessage: c.last_message ? {
+              id: c.last_message.id,
+              sender: c.last_message.sender,
+              receiver: c.last_message.receiver,
+              content: c.last_message.content,
+              timestamp: c.last_message.timestamp,
+              read: c.last_message.read,
+            } : undefined,
+            unreadCount: c.unread_count || 0,
+            messages: [], // messages will be loaded on-demand when opening the conv
+          };
+        });
+
+        setConversations(mapped);
+        console.log('selected user id', selectedUserId)
+        // auto-select from query param if present (only after conversations/users loaded)
         if (selectedUserId) {
-          const found = conversations.find(c => c.participantId === selectedUserId);
+          const found = mapped.find(c => c.participantId === selectedUserId);
           if (found) {
+            console.log('found works', found)
             setSelectedConversation(found.id);
           } else {
             // fetch history for that user and pass the freshly loaded users
+            console.log('found not work')
             handleSelectUser(selectedUserId, filtered);
           }
         }
       } catch (err) {
-        console.error('Failed to load users', err);
+        console.error('Failed to load users or conversations', err);
       }
     })();
 
@@ -71,11 +105,11 @@ export const MessagesPage: React.FC = () => {
   }, []);
 
   const currentConversation = conversations.find(c => c.id === selectedConversation);
-
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
+    // console.log('1')
     if (!newMessage.trim() || !currentConversation) return;
-
+    // console.log('2')
     const recipientId = currentConversation.participantId;
     const payload = JSON.stringify({ recipientId, message: newMessage });
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -83,11 +117,18 @@ export const MessagesPage: React.FC = () => {
     }
     setNewMessage('');
   };
-
+  
   const handleSelectUser = async (userId: string, usersParam?: any[]) => {
     // fetch history
     try {
-      const msgs = await api.getMessageHistory(userId);
+      const currentUserId = state.user?.id;
+      if (!currentUserId) {
+        console.log('current user id is not available.')
+        console.warn('No current user id available, cannot fetch history');
+        return;
+      }
+      console.log('loading message history with userId', userId);
+      const msgs = await api.getMessageHistory(userId, currentUserId);
       const convId = `conv_${userId}`;
       const usersList = usersParam ?? allUsers;
       const participant = usersList.find((u: any) => u.id === userId) || { id: userId, name: 'Unknown' };
@@ -110,9 +151,12 @@ export const MessagesPage: React.FC = () => {
 
     // Open WebSocket connection for real-time messages (include token in query string)
     const token = sessionStorage.getItem('token');
-    // const schoolId = state.selectedSchoolId || '0';
-    // use current user id as the authenticated participant in the path
-    const wsUrl = `ws://${window.location.hostname}:8000/ws/chat/${selectedUserId}/?token=${token}`;
+    if (!token) {
+      console.error('No access token found in sessionStorage; cannot open WebSocket');
+      return;
+    }
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${proto}://${window.location.hostname}:8000/ws/chat/${userId}/?token=${encodeURIComponent(token)}`;
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -174,18 +218,18 @@ export const MessagesPage: React.FC = () => {
           {conversations && conversations.map((conversation) => (
             <div
               key={conversation.id}
-              onClick={() => setSelectedConversation(conversation.id)}
+              onClick={() => handleSelectUser(conversation.participantId)}
               className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
                 selectedConversation === conversation.id ? 'bg-blue-50' : 'hover:bg-gray-50'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium text-gray-900">{conversation.participantName}</h3>
-                {conversation.unreadCount > 0 && (
+                {/* {conversation.unreadCount > 0 && (
                   <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1">
                     {conversation.unreadCount}
                   </span>
-                )}
+                )} */}
               </div>
               <p className="text-sm text-gray-600 truncate">{conversation.lastMessage?.content}</p>
               <p className="text-xs text-gray-500 mt-1">

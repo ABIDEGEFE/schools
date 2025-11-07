@@ -22,10 +22,7 @@ export const UserProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const user = state.user;
   const competition = state.competition;
-  const [comp] = useState<any | null>(null);
- 
-  console.log('value ofo comp in user profile page', comp);
-  console.log('competition id in context', competition.id);
+  
 
   const [isSenderModalOpen, setSenderModalOpen] = useState(false);
   const [isReceiverModalOpen, setReceiverModalOpen] = useState(false);
@@ -46,16 +43,11 @@ export const UserProfilePage: React.FC = () => {
     }
   }, [competition?.status, competition?.isReceiver]);
 
-  // token and socket are now managed by AuthContext
-
-  // Real-time updates for competitions are handled centrally in AuthContext via a per-user WebSocket.
-
- // create useEffect for updating now every minute if there is change in competition status to accepted and there is a scheduled date
-
 
   useEffect(() => {
-    if (competition.status === 'accepted' && competition.scheduledDate) {
-      const timer = setInterval(() => setNow(new Date()), 60000);
+    // update every second while a competition is scheduled (for the countdown)
+    if ((competition.status === 'accepted' || competition.status === 'scheduled') && competition.scheduledDate) {
+      const timer = setInterval(() => setNow(new Date()), 1000);
       return () => clearInterval(timer);
     }
   }, [competition.status, competition.scheduledDate]);
@@ -117,8 +109,7 @@ export const UserProfilePage: React.FC = () => {
     );
     competitionAction = () => {
       // open either sender or receiver modal depending on who the current user is
-      if (comp?.receiver.id === user?.id) {
-        console.log('value for comp on receiver', comp);
+      if (competition.isReceiver) {
         setReceiverModalOpen(true);
       } else {
         setSenderModalOpen(true);
@@ -128,10 +119,23 @@ export const UserProfilePage: React.FC = () => {
     competitionLabel = 'Upcoming Competition';
     competitionBg = 'bg-green-100 animate-pulse';
     competitionAnimated = true;
+    console.log('competition schedule date is', competition.scheduledDate);
     competitionInfo = (
       <div className="text-sm text-green-700 mt-2">
   Competition scheduled with <span className="font-semibold">{competition.opponent?.name}</span> from <span className="font-semibold">{(competition.opponent?.school as any)?.name || competition.opponent?.school || ''}</span>.<br />
         Date: <span className="font-semibold">{competition.scheduledDate ? new Date(competition.scheduledDate).toLocaleString() : '' }</span>
+        {competition.scheduledDate && (() => {
+          const scheduledMs = new Date(competition.scheduledDate).getTime();
+          const rem = scheduledMs - now.getTime();
+          if (rem > 0) {
+            const minutes = Math.floor(rem / 60000);
+            const seconds = Math.floor((rem % 60000) / 1000).toString().padStart(2, '0');
+            return (
+              <div className="text-sm text-green-700 mt-1">Starts in <span className="font-semibold">{minutes}:{seconds}</span></div>
+            );
+          }
+          return null;
+        })()}
       </div>
     );
     competitionAction = () => {
@@ -162,7 +166,6 @@ export const UserProfilePage: React.FC = () => {
   }
 
   if (!user) return null;
-  console.log('opponent school type', competition.opponent?.school)
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
@@ -356,8 +359,9 @@ export const UserProfilePage: React.FC = () => {
         onClose={() => setReceiverModalOpen(false)}
         onAccept={async () => {
             if (!competition.id) return;
-            const response = await api.updateCompetition(competition.id as string, { status: 'accepted' });
-            updateCompetition({ status: response.status});
+      const response = await api.updateCompetition(competition.id as string, { status: 'scheduled' });
+      console.log('response after accepting competition', response);
+      updateCompetition({ status: response.status, scheduledDate: response.scheduled_date || response.scheduledDate });
             setReceiverModalOpen(false);
             setCommonModalOpen(true);
 
@@ -365,6 +369,7 @@ export const UserProfilePage: React.FC = () => {
         onReject={async () => {
             if (!competition.id) return;
             const response = await api.updateCompetition(competition.id as string, { status: 'none' });
+            console.log('response after rejecting competition', response);
             updateCompetition({ status: response.status });
             setReceiverModalOpen(false);
           }

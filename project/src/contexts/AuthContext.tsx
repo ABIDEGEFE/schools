@@ -127,31 +127,42 @@ export const  useAuth = () => {
   return context;
 };
 
-// interface AuthProviderProps {
-//   children: ReactNode;
-// }
 
 export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
   
-  const login = async (email: string, password: string, schoolID: string) => {
+  const login = async (username: string, password: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
-    const userInfo = await api.login(email, password, schoolID);
-    // console.log('User info:', userInfo);
-    // Normalize user shape to include is_licensed etc.
-    const u: any = userInfo as any;
-    const normalized = {
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-      schoolId: u.school?.id || u.schoolId || u.school,
-      status: u.status,
-      is_licensed: u.is_licensed ?? u.isLicensed ?? false,
-      wins: u.wins ?? 0,
-      profilePicture: u.profile_picture || u.profilePicture || undefined,
-    };
-    dispatch({ type: 'LOGIN_SUCCESS', payload: normalized as User });
+  const userInfo = await api.login(username, password);
+  // userInfo shape may be flexible; cast to expected type for reducer
+  dispatch({ type: 'LOGIN_SUCCESS', payload: userInfo as any });
+
+    try {
+      // fetch any existing competitions for this user and set initial competition state
+      const comps = await api.getCompetitionsForUser(userInfo.id);
+      if (comps && comps.length > 0) {
+        // pick the most recent relevant competition (scheduled > accepted > pending)
+        const pickPriority = (c: any) => {
+          if (c.status === 'scheduled') return 3;
+          if (c.status === 'accepted') return 2;
+          if (c.status === 'pending') return 1;
+          return 0;
+        };
+        comps.sort((a: any, b: any) => pickPriority(b) - pickPriority(a));
+        const comp = comps[0];
+        const opponent = comp.sender?.id === userInfo.id ? comp.receiver : comp.sender;
+        const isReceiver = comp.receiver?.id === userInfo.id;
+        dispatch({ type: 'UPDATE_COMPETITION', payload: {
+          id: comp.id,
+          status: comp.status,
+          scheduledDate: (comp.scheduledDate || comp.scheduled_date) as string,
+          opponent: opponent ? { id: opponent.id, name: opponent.name, school: opponent.school } : undefined,
+          isReceiver,
+        } });
+      }
+    } catch (e) {
+      console.warn('Failed to fetch competitions for user after login', e);
+    }
   };
 
   const logout = () => {
@@ -221,10 +232,11 @@ export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
               dispatch({ type: 'UPDATE_COMPETITION', payload: {
                 id: comp.id,
                 status: comp.status,
-                scheduledDate: comp.scheduledDate,
+                scheduledDate: (comp.scheduledDate || comp.scheduled_date) as string,
                 opponent: opponent ? { id: opponent.id, name: opponent.name, school: opponent.school } : undefined,
                 isReceiver,
               } });
+              // console.log('AuthContext: competition updated from WS message');
             }
           } catch (err) {
             console.error('AuthContext: error parsing WS message', err, ev.data);

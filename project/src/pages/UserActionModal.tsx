@@ -62,6 +62,7 @@ export const UserActionsModal: React.FC<UserActionsModalProps> = ({
     
     try {
       const response = await api.sendCompetition({ senderId: currentUser!.id, receiverId: user.id, schoolId: currentUser!.schoolId });
+      console.log('competition response is', response);
       updateCompetition({id:response.id, status: 'pending', opponent: { id: user.id, name: user.name, school: selectedSchool || null  } });
       addNotification({ message: `Competition request sent to ${user.name}`, type: 'success' });
     } catch (err: any) {

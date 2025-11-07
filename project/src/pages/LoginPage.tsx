@@ -11,7 +11,7 @@ export const LoginPage: React.FC = () => {
   const { addNotification } = useNotifications();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: ''
   });
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,7 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      await login(formData.email, formData.password, state.selectedSchoolId);
+      await login(formData.username, formData.password);
       addNotification({
         message: 'Successfully logged in!',
         type: 'success'
@@ -77,13 +77,13 @@ export const LoginPage: React.FC = () => {
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
                   id="email"
-                  name="email" 
+                  name="username" 
                   type="email"
                   onChange={handleInputChange}
                   required
-                  value={formData.email}
+                  value={formData.username}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your email"
+                  placeholder="Enter your username"
                 />
               </div>
             </div>

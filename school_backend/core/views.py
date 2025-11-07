@@ -1,7 +1,11 @@
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from . import models, serializers
+import jwt, datetime
+from django.conf import settings
+from django.db import models as django_models
 
 
 class ReadOnlyOrCreatePermission(permissions.BasePermission):
@@ -16,42 +20,47 @@ class ReadOnlyOrCreatePermission(permissions.BasePermission):
 class SchoolViewSet(viewsets.ModelViewSet):
 	queryset = models.School.objects.all()
 	serializer_class = serializers.SchoolSerializer
+	permission_classes = [ReadOnlyOrCreatePermission]
 	def create(self, request, *args, **kwargs):
-		# Override to auto-generate ID if not provided
 		if not request.data.get('id'):
 			import uuid
 			request.data['id'] = str(uuid.uuid4())
 		return super().create(request, *args, **kwargs)
-	# permission_classes = [ReadOnlyOrCreatePermission]
-	# permission_classes = [ReadOnlyOrCreatePermission]
-	# update information
-	def update(self, request, *args, **kwargs):
-		partial = True
-		print("Partial update:", partial)
-		instance = self.get_object()
-		# print("Instance to update:", instance)
-		serializer = self.get_serializer(instance, data=request.data, partial=partial)
-		print("SchoolViewSet serializer data last:", serializer.initial_data)
-		try:
-			if serializer.is_valid(raise_exception=True):
-				self.perform_update(serializer)
-			else:
-				print("SchoolViewSet serializer errors:", serializer.errors)
-				return Response(serializer.errors, status=400)
-		except Exception as exc:
-			# Return validation errors or other exceptions as a 400 response
-			print('SchoolViewSet.update error:', str(exc))
-			return Response({'detail': str(exc)}, status=400)
-
-		# Ensure the instance is fresh if signals or related fields changed
-		instance.refresh_from_db()
+	
+	@action(detail=False, methods=['get'], url_path=r'get_schools_by_status/(?P<status>[^/.]+)')
+	def get_schools_by_status(self, request, status=None):
+		qs = self.queryset.filter(status=status)
+		serializer = self.get_serializer(qs, many=True)
 		return Response(serializer.data)
 		
 class UserViewSet(viewsets.ModelViewSet):
 	queryset = models.User.objects.all()
 	serializer_class = serializers.UserSerializer
 	permission_classes = [ReadOnlyOrCreatePermission]
-    
+
+	@action(detail=False, methods=['get'], url_path=r'get_users_by_school/(?P<school_id>[^/.]+)')
+	def get_users_by_school(self, request, school_id=None):
+		qs = self.queryset.filter(school_id=school_id)
+		serializer = self.get_serializer(qs, many=True)
+		return Response(serializer.data)
+	
+	@action(detail=False, methods=['get'], url_path=r'get_user_by_status/(?P<school_id>[^/.]+)/(?P<status>[^/.]+)')
+	def get_user_by_status(self, request, school_id=None, status=None):
+		qs = self.queryset.filter(school_id=school_id, status=status)
+		serializer = self.get_serializer(qs, many=True)
+		return Response(serializer.data)
+
+	@action(detail=False, methods=['get'])
+	def get_user_info(self, request):
+		print("get_user_info called", request)
+		user = request.user
+		print("Getting user info for user:", user)
+		if user.is_authenticated:
+			serialized_user = serializers.UserSerializer(user).data
+			return Response({'user': serialized_user}, status=200)
+		return Response({'detail': 'Unauthorized'}, status=401)
+	
+
 
 
 class ExamViewSet(viewsets.ModelViewSet):
@@ -95,6 +104,7 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
 				'type': 'announcement_message',
 				'announcement': serializers.AnnouncementSerializer(announcement).data,
 			}
+			print("Prepared payload for announcement broadcast:", payload)
 
 			if announcement.school is None:
 				print("Announcement has no school, broadcasting to global group")
@@ -128,6 +138,15 @@ class MessageViewSet(viewsets.ModelViewSet):
 	serializer_class = serializers.MessageSerializer
 	permission_classes = [ReadOnlyOrCreatePermission]
 
+	@action(detail=False, methods=['get'], url_path=r'get_messages_between/(?P<user1_id>[^/.]+)/(?P<user2_id>[^/.]+)')
+	def get_messages_between(self, request, user1_id=None, user2_id=None):
+		qs = self.queryset.filter(
+			(django_models.Q(sender_id=user1_id) & django_models.Q(receiver_id=user2_id)) |
+			(django_models.Q(sender_id=user2_id) & django_models.Q(receiver_id=user1_id))
+		).order_by('timestamp')
+		serializer = self.get_serializer(qs, many=True)
+		return Response(serializer.data)
+
 
 class ConversationViewSet(viewsets.ModelViewSet):
 	queryset = models.Conversation.objects.all()
@@ -139,9 +158,8 @@ class CompetitionViewSet(viewsets.ModelViewSet):
 	queryset = models.Competition.objects.all()
 	
 	serializer_class = serializers.CompetitionSerializer
-	
+	print('this is competition viewsetttttttttttttt')
 	# permission_classes = [ReadOnlyOrCreatePermission]
-
     
 	def perform_broadcast(self, competition):
 		try:
@@ -155,10 +173,12 @@ class CompetitionViewSet(viewsets.ModelViewSet):
 			# send to both participants' personal groups
 			async_to_sync(channel_layer.group_send)(f'user_{competition.sender.id}', payload)
 			async_to_sync(channel_layer.group_send)(f'user_{competition.receiver.id}', payload)
+			print('Broadcasted competition update for competition id:', competition.id)
 		except Exception as e:
 			print('Failed to broadcast competition update:', str(e))
 
 	def list(self, request, *args, **kwargs):
+		print('this is list competitionttttttttttttt')
 		queryset = self.filter_queryset(self.get_queryset())
 		sender = request.query_params.get('sender')
 		
@@ -174,9 +194,11 @@ class CompetitionViewSet(viewsets.ModelViewSet):
 			return self.get_paginated_response(serializer.data)
 		serializer = self.get_serializer(queryset, many=True)
 		# print('ddddCompetition list response data:', serializer.data)
+		print('this is competition list response data:', serializer.data)
 		return Response(serializer.data)
 	def create(self, request, *args, **kwargs):
 		# Expect senderId and receiverId in payload
+		print('this is create competitioncccccccccccccc')
 		serializer = self.get_serializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
 		competition = serializer.save()
@@ -185,16 +207,39 @@ class CompetitionViewSet(viewsets.ModelViewSet):
 		return Response(serializer.data, status=201, headers=headers)
 
 	def partial_update(self, request, *args, **kwargs):
-		print('this is partial update competition')
+		print('this is partial update competitionnnnnnnnnnnnn')
+		try:
+			print('partial_update called: method=', request.method, 'user=', getattr(request, 'user', None))
+			print('Authorization header:', request.headers.get('Authorization'))
+			print('Request data:', request.data)
+		except Exception as e:
+			print('Error printing partial_update debug info', str(e))
 		# Use partial updates for status transitions
 		partial = True
 		instance = self.get_object()
 		serializer = self.get_serializer(instance, data=request.data, partial=partial)
 		serializer.is_valid(raise_exception=True)
 		competition = serializer.save()
+
+		# If the competition was just accepted, schedule it 1 minute later and mark as scheduled
+		try:
+			# If status is accepted or already scheduled but has no scheduled_date, set scheduled_date
+			if competition.status in (models.Competition.STATUS_ACCEPTED, models.Competition.STATUS_SCHEDULED):
+				# only schedule if not already scheduled
+				if not competition.scheduled_date:
+					from django.utils import timezone
+					competition.status = models.Competition.STATUS_SCHEDULED
+					competition.scheduled_date = timezone.now() + datetime.timedelta(minutes=1)
+					competition.save()
+					# broadcast the updated competition
+					self.perform_broadcast(competition)
+		except Exception as e:
+			print('Error scheduling competition after accept:', str(e))
+
+		# final broadcast for any remaining updates
 		self.perform_broadcast(competition)
-		print('Competition partial_update response data:', serializer.data)
-		return Response(serializer.data)
+		print('Competition partial_update response data:', self.get_serializer(competition).data)
+		return Response(self.get_serializer(competition).data)
 
 	# Custom actions could be implemented as separate endpoints, but partial_update covers cancel/accept/reject/schedule
 
@@ -208,24 +253,4 @@ class StatusSchoolListView(APIView):
 		serializer = serializers.SchoolSerializer(schools, many=True)
 		return Response(serializer.data)
 
-
-class DeleteUserView(APIView):
-	"""Handle deletion of a user by id. Only allow DELETE and require authentication."""
-	# permission_classes = [permissions.IsAuthenticated]
-
-	def delete(self, request, id):
-		print("DeleteUserView called with id:", id)
-		try:
-			user = models.User.objects.get(id=id)
-		except models.User.DoesNotExist:
-			return Response({'error': 'User not found'}, status=404)
-
-		# Optionally prevent deleting superusers or the requesting user
-		if user.is_superuser:
-			return Response({'error': 'Cannot delete a superuser'}, status=403)
-		if request.user.id == user.id:
-			return Response({'error': "You cannot delete your own account"}, status=403)
-
-		user.delete()
-		return Response({'status': 'deleted'}, status=204)
 

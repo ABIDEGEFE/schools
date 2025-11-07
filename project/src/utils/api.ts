@@ -7,25 +7,38 @@ const token = () => sessionStorage.getItem('token');
 // NOTE: this file used some mock helpers during initial scaffolding; keep focused helpers only
 export const api = {
 
-    login: async (email: string, password: string, schoolID: string): Promise<User> => {
-      console.log('Logging in with school ID:', schoolID);
-      const response = await fetch(`http://localhost:8000/api/login/${schoolID}/`, {
-        method: 'POST',
+  login: async (username: string, password: string) => {
+    const response = await fetch('http://localhost:8000/api/token/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Login failed');
+    }
+    else {
+      const data = await response.json();
+      const accessToken = data.access; // Store the access token for future requests
+      // store in sessionStorage so each tab keeps its own session
+      sessionStorage.setItem('token', accessToken);
+      const userData = await fetch('http://localhost:8000/api/users/get_user_info/', {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`, // Include token in headers
         },
-        body: JSON.stringify({ email, password }),
       });
-      if (!response.ok) {
-        throw new Error('Login failed');
+      if (!userData.ok) {
+        throw new Error('Failed to fetch user info');
       }
-      const data = await response.json();
-      // console.log('response data:', data);
-  const token = data.token; // Store the token for future requests
-  // store in sessionStorage so each tab keeps its own session
-  sessionStorage.setItem('token', token);
-      return data.user as User;
-    },
+
+      const userInfo = await userData.json();
+      return userInfo.user as User;
+    }
+  },
 
   resetPassword: async (email: string, _token: string, _newPassword: string): Promise<void> => {
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -39,7 +52,6 @@ export const api = {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`, // Include token in headers
       },
     });
     if (!response.ok) {
@@ -70,7 +82,7 @@ export const api = {
   updateSchool: async (id: string, updates: Partial<School>): Promise<School> => {
     console.log("API updateSchool called with id:", id, "and updates:", updates);
     const response = await fetch(`http://localhost:8000/api/schools/${id}/`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token()}`,
@@ -101,7 +113,7 @@ export const api = {
   },
 
   getSchoolsByStatus: async (status: 'active' | 'inactive'): Promise<School[]> => {
-    const response = await fetch(`http://localhost:8000/api/schools/status/${status}/`, {
+    const response = await fetch(`http://localhost:8000/api/schools/get_schools_by_status/${status}/`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -134,7 +146,7 @@ export const api = {
   },
 
   getUsers: async (schoolId: string): Promise<User[]> => {
-    const response = await fetch(`http://localhost:8000/api/schools/${schoolId}/users/`, {
+    const response = await fetch(`http://localhost:8000/api/users/get_users_by_school/${schoolId}/`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -149,7 +161,7 @@ export const api = {
   },
 
   createUser: async (userData: Omit<User, 'id'>): Promise<User> => {
-    const response = await fetch('http://localhost:8000/api/register/', {
+    const response = await fetch('http://localhost:8000/api/users/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -165,7 +177,7 @@ export const api = {
   },
 
   updateUser: async (id: string, updates: Partial<User>): Promise<User> => {
-    const response = await fetch(`http://localhost:8000/api/update/users/${id}/`, {
+    const response = await fetch(`http://localhost:8000/api/users/${id}/`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -181,7 +193,7 @@ export const api = {
   },
 
   deleteUser: async (id: string): Promise<void> => {
-    const response = await fetch(`http://localhost:8000/api/delete/users/${id}/`, {
+    const response = await fetch(`http://localhost:8000/api/users/${id}/`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -197,7 +209,7 @@ export const api = {
 
   getUsersByStatus: async (status: 'green' | 'yellow' | 'red', schoolId: string): Promise<User[]> => {
     // Backend expects the school id as a path parameter: /api/users/status/{status}/{school_id}/
-    const response = await fetch(`http://localhost:8000/api/users/status/${status}/${schoolId}/`, {
+    const response = await fetch(`http://localhost:8000/api/users/get_user_by_status/${schoolId}/${status}/`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -230,8 +242,8 @@ export const api = {
   },
 
   // Messages
-  getMessageHistory: async (otherUserId: string): Promise<any[]> => {
-    const response = await fetch(`http://localhost:8000/api/messages/history/${otherUserId}/`, {
+  getMessageHistory: async (otherUserId: string, currentUserId: string): Promise<any[]> => {
+    const response = await fetch(`http://localhost:8000/api/messages/get_messages_between/${otherUserId}/${currentUserId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -240,6 +252,22 @@ export const api = {
     });
     if (!response.ok) {
       throw new Error('Failed to fetch message history');
+    }
+    const data = await response.json();
+    return data;
+  },
+
+  // Fetch conversations (threads) the backend exposes
+  getConversations: async (): Promise<any[]> => {
+    const response = await fetch('http://localhost:8000/api/conversations/', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token()}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch conversations');
     }
     const data = await response.json();
     return data;
@@ -264,7 +292,7 @@ export const api = {
 
   updateCompetition: async (id: string, updates: Partial<any>): Promise<any> => {
     const response = await fetch(`http://localhost:8000/api/competitions/${id}/`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token()}`,
@@ -290,6 +318,26 @@ export const api = {
       throw new Error('Failed to fetch competitions');
     }
     return await response.json();
+  },
+
+  // Fetch competitions where the given user is either sender or receiver
+  getCompetitionsForUser: async (userId: string): Promise<any[]> => {
+    const bySender = await fetch(`http://localhost:8000/api/competitions/?sender=${userId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token()}` },
+    });
+    const senderData = bySender.ok ? await bySender.json() : [];
+
+    const byReceiver = await fetch(`http://localhost:8000/api/competitions/?receiver=${userId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token()}` },
+    });
+    const receiverData = byReceiver.ok ? await byReceiver.json() : [];
+
+    // merge unique by id
+    const map: Record<string, any> = {};
+    [...senderData, ...receiverData].forEach((c: any) => { map[c.id] = c; });
+    return Object.values(map);
   },
 
   // Exams

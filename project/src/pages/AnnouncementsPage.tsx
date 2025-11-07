@@ -14,10 +14,10 @@ export const AnnouncementsPage: React.FC = () => {
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
-      if (state.user?.schoolId) {
-        console.log('Fetching announcements for school ID:', state.user.schoolId);
+      if (state.user?.school.id) {
+        console.log('Fetching announcements for school ID:', state.user?.school.id);
         try {
-          const announcementData = await api.getAnnouncements(state.user.schoolId);
+          const announcementData = await api.getAnnouncements(state.user?.school.id);
           console.log('fetched announcements', announcementData);
           setAnnouncements(announcementData);
           markAllRead();
@@ -31,7 +31,7 @@ export const AnnouncementsPage: React.FC = () => {
         }
       }
       else{
-        console.log('No user or school ID available for', state.user);
+        console.log('No user or school ID available for', state.user?.school.id);
       }
     };
 

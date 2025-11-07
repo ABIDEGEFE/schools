@@ -18,7 +18,7 @@ export const UserManagementPage: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const user = state.user;
-  const schoolId = user?.schoolId;
+  const schoolId = user?.school.id;
 
 
   useEffect(() => {
