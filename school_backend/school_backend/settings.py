@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     'channels',
 ]
 
+DJANGO_SETTINGS_MODULE = 'school_backend.settings'
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',

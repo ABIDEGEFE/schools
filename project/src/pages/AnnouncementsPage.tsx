@@ -38,11 +38,20 @@ export const AnnouncementsPage: React.FC = () => {
     fetchAnnouncements();
     // Open websocket for live announcements
     const token = sessionStorage.getItem('token');
-    const wsUrl = `ws://${window.location.hostname}:8000/ws/announcements/?token=${token}`;
+    if (!token) {
+      console.error('No access token found in sessionStorage; cannot open WebSocket');
+      return;
+    }
+    // const wsUrl = `ws://${window.location.hostname}:8000/ws/announcements/?token=${encodeURIComponent(token)}}`;
+
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${proto}://${window.location.hostname}:8000/ws/announcements/?token=${encodeURIComponent(token)}`;
     let ws: WebSocket | null = null;
+    
     try {
       ws = new WebSocket(wsUrl);
       ws.onmessage = (ev) => {
+        console.log('WebSocket message event:', ev);
         try {
           const data = JSON.parse(ev.data);
           console.log('WebSocket message received:', data);
@@ -63,10 +72,11 @@ export const AnnouncementsPage: React.FC = () => {
           }
         } catch (err) {
           console.log('Failed to parse announcement WS message', err);
-          console.error('Failed to parse announcement WS message', err);
+          // console.error('Failed to parse announcement WS message', err);
         }
       };
     } catch (err) {
+      console.log('Announcement WS not available', err);
       console.warn('Announcement WS not available', err);
     }
 
