@@ -12,65 +12,15 @@ from django.conf import settings
 
 User = get_user_model()
 
-
-# async def authenticate_consumer(instance):
-#     """Validate access token from the consumer's query string and attach user to the instance.
-
-#     Returns True on success, False otherwise.
-#     """
-#     try:
-#         raw_qs = instance.scope.get('query_string', b'').decode()
-#         print('authenticate_consumer: raw query_string=', raw_qs)
-#         qs = parse_qs(raw_qs)
-#         token_list = qs.get('token') or qs.get('access')
-#         if not token_list:
-#             print('authenticate_consumer: no token in query string')
-#             return False
-#         raw = token_list[0]
-#         print('authenticate_consumer: token present length=', len(raw) if raw else 0)
-#         if raw.strip().startswith('{'):
-#             try:
-#                 parsed = json.loads(raw)
-#                 raw = parsed.get('access') or parsed.get('token') or raw
-#             except Exception:
-#                 pass
-
-#         token_backend = TokenBackend(algorithm=settings.SIMPLE_JWT.get('ALGORITHM', 'HS256'),
-#                                      signing_key=settings.SIMPLE_JWT.get('SIGNING_KEY', settings.SECRET_KEY))
-#         try:
-#             validated = token_backend.decode(raw, verify=True)
-#         except Exception as e:
-#             print('authenticate_consumer: token decode failed:', str(e))
-#             return False
-#         user_id = validated.get('user_id') or validated.get('id') or validated.get('sub')
-#         if not user_id:
-#             return False
-#         user = await database_sync_to_async(User.objects.get)(id=user_id)
-#         instance.scope['user'] = user
-#         instance.user = user
-#         return True
-#     except Exception as exc:
-#         print('WebSocket auth failed in authenticate_consumer:', str(exc))
-#         return False
-
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        # authenticate the connecting user via JWT access token passed in querystring
-        token = self.scope['query_string'].decode().split('token=')[-1]
-        try:
-            from rest_framework_simplejwt.tokens import UntypedToken
-            validated_token = UntypedToken(token)
-            user_id = validated_token['user_id']
-            user = await self.get_target_user(user_id)
-            self.scope['user'] = user
-            self.user = user
-        except Exception:
+        user = self.scope['user']
+        if user.is_anonymous:
+            print('ChatConsumer: anonymous user, closing connection')
             await self.close()
             return
-        # authenticated = await authenticate_consumer(self)
-        # if not authenticated:
-        #     await self.close()
-        #     return
+        self.user = user
+        print('ChatConsumer connecting for user:', self.user.email, self.user.id)
         try:
             self.selected_user_id = self.scope['url_route']['kwargs'].get('selected_user_id')
         except Exception:
@@ -219,18 +169,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
 class AnnouncementConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         # Authenticate the connection using access token from query string
-        token = self.scope['query_string'].decode().split('token=')[-1]
-        try:
-            from rest_framework_simplejwt.tokens import UntypedToken
-            validated_token = UntypedToken(token)
-            user_id = validated_token['user_id']
-            user = await self.get_target_user(user_id)
-            self.scope['user'] = user
-            self.user = user
-        except Exception:
-            print('AnnouncementConsumerrrrrrrr: authentication failed')
+        print("session based", self.scope["session"])
+        user = self.scope['user']
+        if user.is_anonymous:
+            print('AnnouncementConsumer: anonymous user, closing connection')
             await self.close()
             return
+        self.user = user
+        print('AnnouncementConsumer connecting for user:', self.user.email, self.user.id)
         await self.accept()
         # Join global announcements group
         self.group_name = 'announcements'
@@ -280,17 +226,13 @@ class AnnouncementConsumer(AsyncWebsocketConsumer):
 
 class UserConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        token = self.scope['query_string'].decode().split('token=')[-1]
-        try:
-            from rest_framework_simplejwt.tokens import UntypedToken
-            validated_token = UntypedToken(token)
-            user_id = validated_token['user_id']
-            user = await self.get_target_user(user_id)
-            self.scope['user'] = user
-            self.user = user
-        except Exception:
+        user = self.scope['user']
+        if user.is_anonymous:
+            print('UserConsumer: anonymous user, closing connection')
             await self.close()
             return
+        self.user = user
+        print('UserConsumer connecting for user:', self.user.email, self.user.id)
 
         self.user_group = f'user_{self.user.id}'
         await self.channel_layer.group_add(self.user_group, self.channel_name)

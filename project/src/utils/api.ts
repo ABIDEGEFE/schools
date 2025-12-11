@@ -2,41 +2,44 @@ import { School, User, Exam, Announcement, Material, Question } from '../data/mo
 import { mockExams, mockMaterials, mockQuestions } from '../data/mockData';
 // Mock API functions - replace with actual axios calls when integrating with Django
 // Use sessionStorage so token is scoped to a single browser tab/window
-const token = () => sessionStorage.getItem('token');
+
+// Ensure cookies are sent/received on every request for session auth
+const fetchWithCreds = (url: string, options: RequestInit = {}) => fetch(url, { credentials: 'include', ...options });
 
 // NOTE: this file used some mock helpers during initial scaffolding; keep focused helpers only
 export const api = {
 
   login: async (username: string, password: string) => {
-    const response = await fetch('http://localhost:8000/api/token/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/users/login_view/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ username, password }),
     });
-
+    // console.log("Login response:", response);
     if (!response.ok) {
+      console.log("Login failed with status:", response.status);
       throw new Error('Login failed');
     }
-    else {
-      const data = await response.json();
-      const accessToken = data.access; // Store the access token for future requests
-      // store in sessionStorage so each tab keeps its own session
-      sessionStorage.setItem('token', accessToken);
-      const userData = await fetch('http://localhost:8000/api/users/get_user_info/', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`, // Include token in headers
-        },
-      });
-      if (!userData.ok) {
-        throw new Error('Failed to fetch user info');
-      }
+    else{
 
-      const userInfo = await userData.json();
-      return userInfo.user as User;
+      const data = await response.json();
+      console.log("Login successful, response data:", data);
+      const userInfo = data.user as User;
+      return userInfo;
+    }
+  },
+
+  logout: async (): Promise<void> => {
+    const response = await fetchWithCreds('http://localhost:8000/api/users/logout_view/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Logout failed');
     }
   },
 
@@ -48,7 +51,7 @@ export const api = {
 
   // Schools
   getSchools: async (): Promise<School[]> => {
-    const response = await fetch('http://localhost:8000/api/schools/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/schools/', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -63,11 +66,10 @@ export const api = {
   },
 
   createSchool: async (schoolData: Omit<School, 'id'>): Promise<School> => {
-    const response = await fetch('http://localhost:8000/api/schools/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/schools/', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(schoolData),
     });
@@ -81,11 +83,10 @@ export const api = {
 
   updateSchool: async (id: string, updates: Partial<School>): Promise<School> => {
     console.log("API updateSchool called with id:", id, "and updates:", updates);
-    const response = await fetch(`http://localhost:8000/api/schools/${id}/`, {
+    const response = await fetchWithCreds(`http://localhost:8000/api/schools/${id}/`, {
       method: 'PATCH',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(updates),
     });
@@ -98,11 +99,10 @@ export const api = {
   },
 
   deleteSchool: async (id: string): Promise<void> => {
-    const response = await fetch(`http://localhost:8000/api/schools/${id}/`, {
+    const response = await fetchWithCreds(`http://localhost:8000/api/schools/${id}/`, {
       method: 'DELETE',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
     });
     if (response.status === 204 || response.ok) {
@@ -113,11 +113,10 @@ export const api = {
   },
 
   getSchoolsByStatus: async (status: 'active' | 'inactive'): Promise<School[]> => {
-    const response = await fetch(`http://localhost:8000/api/schools/get_schools_by_status/${status}/`, {
+    const response = await fetchWithCreds(`http://localhost:8000/api/schools/get_schools_by_status/${status}/`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
       },
     });
     if (!response.ok) {
@@ -129,11 +128,10 @@ export const api = {
 
   // Users
   registerAdmin: async (adminData: { name: string; email: string; password: string; schoolId: string; role: string }): Promise<User> => {
-    const response = await fetch('http://localhost:8000/api/register/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/register/', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`, // Include token in headers
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(adminData),
     });
@@ -146,11 +144,10 @@ export const api = {
   },
 
   getUsers: async (schoolId: string): Promise<User[]> => {
-    const response = await fetch(`http://localhost:8000/api/users/get_users_by_school/${schoolId}/`, {
+    const response = await fetchWithCreds(`http://localhost:8000/api/users/get_users_by_school/${schoolId}/`, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`, // Include token in headers
+        'Content-Type': 'application/json'
       },
     });
     if (!response.ok) {
@@ -161,11 +158,10 @@ export const api = {
   },
 
   createUser: async (userData: Omit<User, 'id'>): Promise<User> => {
-    const response = await fetch('http://localhost:8000/api/users/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/users/', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`, // Include token in headers
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(userData),
     });
@@ -177,11 +173,10 @@ export const api = {
   },
 
   updateUser: async (id: string, updates: Partial<User>): Promise<User> => {
-    const response = await fetch(`http://localhost:8000/api/users/${id}/`, {
+    const response = await fetchWithCreds(`http://localhost:8000/api/users/${id}/`, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`, // Include token in headers
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(updates),
     });
@@ -193,11 +188,10 @@ export const api = {
   },
 
   deleteUser: async (id: string): Promise<void> => {
-    const response = await fetch(`http://localhost:8000/api/users/${id}/`, {
+    const response = await fetchWithCreds(`http://localhost:8000/api/users/${id}/`, {
       method: 'DELETE',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
     });
     if (response.status === 204 || response.ok) {
@@ -209,11 +203,10 @@ export const api = {
 
   getUsersByStatus: async (status: 'green' | 'yellow' | 'red', schoolId: string): Promise<User[]> => {
     // Backend expects the school id as a path parameter: /api/users/status/{status}/{school_id}/
-    const response = await fetch(`http://localhost:8000/api/users/get_user_by_status/${schoolId}/${status}/`, {
+    const response = await fetchWithCreds(`http://localhost:8000/api/users/get_user_by_status/${schoolId}/${status}/`, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`, // Include token in headers
+        'Content-Type': 'application/json'
       },
     });
     if (!response.ok) {
@@ -227,11 +220,10 @@ export const api = {
 
   // Get all users (across schools)
   getAllUsers: async (): Promise<User[]> => {
-    const response = await fetch('http://localhost:8000/api/users/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/users/', {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
     });
     if (!response.ok) {
@@ -243,11 +235,10 @@ export const api = {
 
   // Messages
   getMessageHistory: async (otherUserId: string, currentUserId: string): Promise<any[]> => {
-    const response = await fetch(`http://localhost:8000/api/messages/get_messages_between/${otherUserId}/${currentUserId}`, {
+    const response = await fetchWithCreds(`http://localhost:8000/api/messages/get_messages_between/${otherUserId}/${currentUserId}`, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
     });
     if (!response.ok) {
@@ -259,11 +250,10 @@ export const api = {
 
   // Fetch conversations (threads) the backend exposes
   getConversations: async (): Promise<any[]> => {
-    const response = await fetch('http://localhost:8000/api/conversations/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/conversations/', {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
     });
     if (!response.ok) {
@@ -275,11 +265,10 @@ export const api = {
 
   // Competitions
   sendCompetition: async (payload: { senderId: string; receiverId: string; schoolId?: string }): Promise<any> => {
-    const response = await fetch('http://localhost:8000/api/competitions/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/competitions/', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload),
     });
@@ -291,11 +280,10 @@ export const api = {
   },
 
   updateCompetition: async (id: string, updates: Partial<any>): Promise<any> => {
-    const response = await fetch(`http://localhost:8000/api/competitions/${id}/`, {
+    const response = await fetchWithCreds(`http://localhost:8000/api/competitions/${id}/`, {
       method: 'PATCH',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(updates),
     });
@@ -307,11 +295,10 @@ export const api = {
   },
 
   getCompetitionBetween: async (userA: string, userB: string): Promise<any[]> => {
-    const response = await fetch(`http://localhost:8000/api/competitions/?sender=${userA}&receiver=${userB}`, {
+    const response = await fetchWithCreds(`http://localhost:8000/api/competitions/?sender=${userA}&receiver=${userB}`, {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
     });
     if (!response.ok) {
@@ -322,15 +309,15 @@ export const api = {
 
   // Fetch competitions where the given user is either sender or receiver
   getCompetitionsForUser: async (userId: string): Promise<any[]> => {
-    const bySender = await fetch(`http://localhost:8000/api/competitions/?sender=${userId}`, {
+    const bySender = await fetchWithCreds(`http://localhost:8000/api/competitions/?sender=${userId}`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token()}` },
+      headers: { 'Content-Type': 'application/json' },
     });
     const senderData = bySender.ok ? await bySender.json() : [];
 
-    const byReceiver = await fetch(`http://localhost:8000/api/competitions/?receiver=${userId}`, {
+    const byReceiver = await fetchWithCreds(`http://localhost:8000/api/competitions/?receiver=${userId}`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token()}` },
+      headers: { 'Content-Type': 'application/json' },
     });
     const receiverData = byReceiver.ok ? await byReceiver.json() : [];
 
@@ -363,11 +350,10 @@ export const api = {
 
   // Announcements
   getAnnouncements: async (schoolId: string): Promise<Announcement[]> => {
-    const response = await fetch('http://localhost:8000/api/announcements/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/announcements/', {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
     });
     if (!response.ok) {
@@ -380,11 +366,10 @@ export const api = {
   },
 
   createAnnouncement: async (announcement: Omit<Announcement, 'id' | 'createdAt'>): Promise<Announcement> => {
-    const response = await fetch('http://localhost:8000/api/announcements/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/announcements/', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json', 
-        'Authorization': `Bearer ${token()}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(announcement),
     });

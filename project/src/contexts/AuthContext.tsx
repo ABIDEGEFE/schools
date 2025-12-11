@@ -165,7 +165,13 @@ export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.logout();
+    } catch (e) {
+      console.warn('Logout request failed', e);
+    }
+    console.log('Logging out user');
     dispatch({ type: 'LOGOUT' });
   };
 
@@ -193,8 +199,7 @@ export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
 
   useEffect(() => {
     // connect only when we have a logged-in user and a token
-    const token = sessionStorage.getItem('token');
-    if (!token || !state.user) {
+    if (!state.user) {
       // ensure any existing socket is closed
       try { wsRef.current?.close(); } catch(_) {}
       wsRef.current = null;
@@ -203,7 +208,7 @@ export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = `${window.location.hostname}:8000`;
-    const wsUrl = `${protocol}//${host}/ws/user/?token=${encodeURIComponent(token)}`;
+    const wsUrl = `${protocol}//${host}/ws/user/`;
 
     // avoid duplicate sockets
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {

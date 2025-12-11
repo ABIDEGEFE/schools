@@ -119,7 +119,7 @@ export const UserProfilePage: React.FC = () => {
     competitionLabel = 'Upcoming Competition';
     competitionBg = 'bg-green-100 animate-pulse';
     competitionAnimated = true;
-    console.log('competition schedule date is', competition.scheduledDate);
+    // console.log('competition schedule date is', competition.scheduledDate);
     competitionInfo = (
       <div className="text-sm text-green-700 mt-2">
   Competition scheduled with <span className="font-semibold">{competition.opponent?.name}</span> from <span className="font-semibold">{(competition.opponent?.school as any)?.name || competition.opponent?.school || ''}</span>.<br />

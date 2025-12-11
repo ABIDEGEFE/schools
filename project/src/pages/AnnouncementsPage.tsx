@@ -37,15 +37,10 @@ export const AnnouncementsPage: React.FC = () => {
 
     fetchAnnouncements();
     // Open websocket for live announcements
-    const token = sessionStorage.getItem('token');
-    if (!token) {
-      console.error('No access token found in sessionStorage; cannot open WebSocket');
-      return;
-    }
     // const wsUrl = `ws://${window.location.hostname}:8000/ws/announcements/?token=${encodeURIComponent(token)}}`;
 
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${proto}://${window.location.hostname}:8000/ws/announcements/?token=${encodeURIComponent(token)}`;
+    const wsUrl = `${proto}://${window.location.hostname}:8000/ws/announcements/`;
     let ws: WebSocket | null = null;
     
     try {

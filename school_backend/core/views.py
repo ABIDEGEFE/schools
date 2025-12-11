@@ -1,7 +1,10 @@
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
+from django.contrib.auth import login, logout, authenticate
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from . import models, serializers
 import jwt, datetime
 from django.conf import settings
@@ -36,7 +39,72 @@ class SchoolViewSet(viewsets.ModelViewSet):
 class UserViewSet(viewsets.ModelViewSet):
 	queryset = models.User.objects.all()
 	serializer_class = serializers.UserSerializer
-	permission_classes = [ReadOnlyOrCreatePermission]
+	# permission_classes = [ReadOnlyOrCreatePermission]
+
+    
+	print('this is user viewsetttttttttttttt why am i here')
+
+	@action(detail=False, methods=['post'])
+	def login_view(self, request):
+		username = request.data.get('username')
+		password = request.data.get('password')
+		print("Login attempt for username:", username)
+		user = authenticate(request, username=username, password=password)
+		print("Authenticationnnnnnnnnnnnnnnnn result:", user)
+		if user is not None:
+			print("User authenticated successfully:", user)
+			login(request, user)
+			user = request.user
+			# Make sure session is saved and cookie is set
+			request.session.save()
+			serialized_user = serializers.UserSerializer(user).data
+			resp = Response({'user': serialized_user}, status=200)
+			resp.set_cookie(
+				settings.SESSION_COOKIE_NAME,
+				request.session.session_key,
+				httponly=True,
+				secure=False,
+				samesite='Lax',
+				path='/'
+			)
+			return resp
+		print("Getting user info for user:", user)
+		if user and user.is_authenticated:
+			serialized_user = serializers.UserSerializer(user).data
+			resp = Response({'user': serialized_user}, status=200)
+			resp.set_cookie(
+				settings.SESSION_COOKIE_NAME,
+				request.session.session_key,
+				http_only=True,
+				secure=False,
+				samesite='Lax',
+				path='/'
+			)
+			return resp
+		return Response({'detail': 'Unauthorizedddddd'}, status=401)
+	
+	@method_decorator(csrf_exempt)
+	@action(detail=False, methods=['post'])
+	def logout_view(self,request):
+		try:
+			print("Logout called for user:", request.user)
+			# Flush session data and invalidate the session id
+			request.session.flush()
+			logout(request)
+			resp = Response({'detail': 'Logged out'}, status=200)
+			# Remove session cookie so browser no longer presents stale id
+			resp.delete_cookie(
+				settings.SESSION_COOKIE_NAME,
+				path='/',
+				samesite='Lax',
+				secure=False,
+				httponly=True,
+			)
+			return resp
+		except Exception as e:
+			print('logout failed in one or another casessssssss')
+			return Response({'detail': f'Logout failed: {e}'}, status=400)
+			
 
 	@action(detail=False, methods=['get'], url_path=r'get_users_by_school/(?P<school_id>[^/.]+)')
 	def get_users_by_school(self, request, school_id=None):
@@ -68,13 +136,12 @@ class ExamViewSet(viewsets.ModelViewSet):
 	serializer_class = serializers.ExamSerializer
 	permission_classes = [ReadOnlyOrCreatePermission]
 
-
 class QuestionViewSet(viewsets.ModelViewSet):
 	queryset = models.Question.objects.all()
 	serializer_class = serializers.QuestionSerializer
 	permission_classes = [ReadOnlyOrCreatePermission]
 
-
+   
 class AnnouncementViewSet(viewsets.ModelViewSet):
 	queryset = models.Announcement.objects.all()
 	serializer_class = serializers.AnnouncementSerializer
@@ -194,7 +261,7 @@ class CompetitionViewSet(viewsets.ModelViewSet):
 			return self.get_paginated_response(serializer.data)
 		serializer = self.get_serializer(queryset, many=True)
 		# print('ddddCompetition list response data:', serializer.data)
-		print('this is competition list response data:', serializer.data)
+		# print('this is competition list response data:', serializer.data)
 		return Response(serializer.data)
 	def create(self, request, *args, **kwargs):
 		# Expect senderId and receiverId in payload

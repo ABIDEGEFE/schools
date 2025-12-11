@@ -150,13 +150,9 @@ export const MessagesPage: React.FC = () => {
       setSelectedConversation(convId);
 
     // Open WebSocket connection for real-time messages (include token in query string)
-    const token = sessionStorage.getItem('token');
-    if (!token) {
-      console.error('No access token found in sessionStorage; cannot open WebSocket');
-      return;
-    }
+    
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${proto}://${window.location.hostname}:8000/ws/chat/${userId}/?token=${encodeURIComponent(token)}`;
+    const wsUrl = `${proto}://${window.location.hostname}:8000/ws/chat/${userId}/`;
       if (wsRef.current) {
         wsRef.current.close();
       }
