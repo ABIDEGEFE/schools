@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from django.contrib.auth import login, logout, authenticate
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from . import models, serializers
 import jwt, datetime
@@ -41,21 +41,18 @@ class UserViewSet(viewsets.ModelViewSet):
 	serializer_class = serializers.UserSerializer
 	# permission_classes = [ReadOnlyOrCreatePermission]
 
-    
-	print('this is user viewsetttttttttttttt why am i here')
-
+	@method_decorator(ensure_csrf_cookie)
 	@action(detail=False, methods=['post'])
 	def login_view(self, request):
 		username = request.data.get('username')
 		password = request.data.get('password')
 		print("Login attempt for username:", username)
 		user = authenticate(request, username=username, password=password)
-		print("Authenticationnnnnnnnnnnnnnnnn result:", user)
+		print('2Login authentication result:', user)
 		if user is not None:
-			print("User authenticated successfully:", user)
 			login(request, user)
 			user = request.user
-			# Make sure session is saved and cookie is set
+			
 			request.session.save()
 			serialized_user = serializers.UserSerializer(user).data
 			resp = Response({'user': serialized_user}, status=200)
@@ -68,7 +65,7 @@ class UserViewSet(viewsets.ModelViewSet):
 				path='/'
 			)
 			return resp
-		print("Getting user info for user:", user)
+	
 		if user and user.is_authenticated:
 			serialized_user = serializers.UserSerializer(user).data
 			resp = Response({'user': serialized_user}, status=200)
@@ -83,12 +80,11 @@ class UserViewSet(viewsets.ModelViewSet):
 			return resp
 		return Response({'detail': 'Unauthorizedddddd'}, status=401)
 	
-	@method_decorator(csrf_exempt)
+	
 	@action(detail=False, methods=['post'])
+	@method_decorator(csrf_exempt)
 	def logout_view(self,request):
 		try:
-			print("Logout called for user:", request.user)
-			# Flush session data and invalidate the session id
 			request.session.flush()
 			logout(request)
 			resp = Response({'detail': 'Logged out'}, status=200)
@@ -97,12 +93,9 @@ class UserViewSet(viewsets.ModelViewSet):
 				settings.SESSION_COOKIE_NAME,
 				path='/',
 				samesite='Lax',
-				secure=False,
-				httponly=True,
 			)
 			return resp
 		except Exception as e:
-			print('logout failed in one or another casessssssss')
 			return Response({'detail': f'Logout failed: {e}'}, status=400)
 			
 

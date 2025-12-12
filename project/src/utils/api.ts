@@ -6,6 +6,12 @@ import { mockExams, mockMaterials, mockQuestions } from '../data/mockData';
 // Ensure cookies are sent/received on every request for session auth
 const fetchWithCreds = (url: string, options: RequestInit = {}) => fetch(url, { credentials: 'include', ...options });
 
+// Extract CSRF token from cookies for unsafe methods (POST/PATCH/DELETE)
+const getCsrfToken = (): string | undefined => {
+  const match = document.cookie.match(/csrftoken=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : undefined;
+};
+
 // NOTE: this file used some mock helpers during initial scaffolding; keep focused helpers only
 export const api = {
 
@@ -31,16 +37,21 @@ export const api = {
     }
   },
 
-  logout: async (): Promise<void> => {
+  logout: async (): Promise<string> => {
     const response = await fetchWithCreds('http://localhost:8000/api/users/logout_view/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
     });
+
+    const data = await response.text();
+    console.log("Logout response data:", data);
     if (!response.ok) {
       throw new Error('Logout failed');
     }
+    return data;
   },
 
   resetPassword: async (email: string, _token: string, _newPassword: string): Promise<void> => {
@@ -69,7 +80,8 @@ export const api = {
     const response = await fetchWithCreds('http://localhost:8000/api/schools/', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
       body: JSON.stringify(schoolData),
     });
@@ -86,7 +98,8 @@ export const api = {
     const response = await fetchWithCreds(`http://localhost:8000/api/schools/${id}/`, {
       method: 'PATCH',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
       body: JSON.stringify(updates),
     });
@@ -102,7 +115,8 @@ export const api = {
     const response = await fetchWithCreds(`http://localhost:8000/api/schools/${id}/`, {
       method: 'DELETE',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
     });
     if (response.status === 204 || response.ok) {
@@ -131,7 +145,8 @@ export const api = {
     const response = await fetchWithCreds('http://localhost:8000/api/register/', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
       body: JSON.stringify(adminData),
     });
@@ -161,7 +176,8 @@ export const api = {
     const response = await fetchWithCreds('http://localhost:8000/api/users/', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
       body: JSON.stringify(userData),
     });
@@ -176,7 +192,8 @@ export const api = {
     const response = await fetchWithCreds(`http://localhost:8000/api/users/${id}/`, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
       body: JSON.stringify(updates),
     });
@@ -191,7 +208,8 @@ export const api = {
     const response = await fetchWithCreds(`http://localhost:8000/api/users/${id}/`, {
       method: 'DELETE',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
     });
     if (response.status === 204 || response.ok) {
@@ -268,7 +286,8 @@ export const api = {
     const response = await fetchWithCreds('http://localhost:8000/api/competitions/', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
       body: JSON.stringify(payload),
     });
@@ -283,7 +302,8 @@ export const api = {
     const response = await fetchWithCreds(`http://localhost:8000/api/competitions/${id}/`, {
       method: 'PATCH',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
       body: JSON.stringify(updates),
     });
