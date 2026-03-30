@@ -5,6 +5,7 @@ import (
 
 	"fmt"
 	"sync"
+       "time"
 )
 
 type Question struct {
@@ -63,8 +64,8 @@ func sendQuestions(questions []Question, ch chan<- Question){
 	close(ch)
 }
 
-func playerWorker(player Player, questions <- chan Question, answer chan<- Answer){
-
+func playerWorker(player Player, questions <- chan Question, answer chan<- Answer, wg *sync.WaitGroup){
+        wg.Add(1)
 	for q := range questions{
 
 		ans := Answer{
@@ -76,6 +77,7 @@ func playerWorker(player Player, questions <- chan Question, answer chan<- Answe
 		}
 		answer <- ans
 	}
+       wg.Done()
 }
 
 func judge(answer <- chan Answer, questions map[int]Question, sb *ScoreBoard, done chan bool){
@@ -94,6 +96,7 @@ func judge(answer <- chan Answer, questions map[int]Question, sb *ScoreBoard, do
 
 func main(){
 
+	var wg sync.WaitGroup
 	questions := []Question{
 
 		{1, "1+1", "2"},
@@ -108,29 +111,26 @@ func main(){
 	}
 
 	qCh := make(chan Question)
-	ansCh := make(chan Answer)
+	ansCh := make(chan Answer, 3)
 	done := make(chan bool)
 
 	sb := NewScoreBoard()
 
 	player1 := Player{"Mamo"}
-	player2 := Player{"Jhon"}
+        player2 := Player{"Jhon"}
 
 	go sendQuestions(questions, qCh)
-	go playerWorker(player1, qCh, ansCh)
-	go playerWorker(player2, qCh, ansCh)
+	go playerWorker(player1, qCh, ansCh, &wg)
+	go playerWorker(player2, qCh, ansCh, &wg)
 
 	go judge(ansCh, questionMap, sb, done)
-
+        
+	time.Sleep(1 * time.Second)
 	go func(){
-
-		for i:=0; i<len(questions)*2; i++{
-
-		}
-		close(ansCh)
-
+	     wg.Wait()
+	     close(ansCh)
 	}()
-
+        
 	<-done
 	sb.Print()
 
