@@ -4,6 +4,7 @@ package main
 import (
 
 	"fmt"
+	"sync"
 	// "net/http"
 	// "github.com/gorilla/websocket"
 	"gorm.io/gorm"
@@ -24,6 +25,22 @@ type Question struct {
 	Answer string `gorm:"not null"`
 }
 
+func createQuestions(db *gorm.DB, wg *sync.WaitGroup){
+	defer wg.Done()
+	questions := Question {
+         
+		Text: "Ethiopia is found in Asia",
+		Answer: "False",
+           
+	}
+
+	res := db.Create(&questions)
+	if res.Error != nil {
+           fmt.Println("Error while inseting data.. ", res.Error)
+	}
+	fmt.Println("Inserted ........")
+
+}
 /*var upgrader = websocket.Upgrader(
 
 	// CheckOrigin: func(r *http.Request)bool{ return true }
@@ -36,37 +53,67 @@ type Question struct {
 	Text string
 
 }*/
-/*func sendQuestions(w http.ResponseWriter, r *http.Request){
+func sendQuestions(db *gorm.DB, ques chan <- Question, wg *sync.WaitGroup){
+        
+	defer wg.Done()
+	var question Question
+	// Qustions would be retrived randomly from the database
+	randomId := 1
+	res := db.Find(&question, randomId)
+	if res.Error != nil {
+               fmt.Println("Error while retrieving....")
+	       return
+	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	ques <- question
+        close(ques)
+	/*conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 
 		fmt.Println("Error creating connection ", err)
 		return
-	}
+	}*/
 
 }
-
+/*
 func login(){
 
 }
-
-func evaluateAnswer(w http.ResponseWriter, r *http.Request){
-
-	conn, err := upgrader.Upgrade(w, r, nil)
+*/
+func evaluateAnswer(quse <- chan Question, wg *sync.WaitGroup){
+        
+	defer wg.Done()
+	//simulate user answer
+	userAnswer := "True"
+	
+	for res := range quse{
+           if userAnswer == res.Answer{
+	      // return true for the client
+              fmt.Println("Correct!")
+	   }else{
+	      // return false for the client
+              fmt.Println("Incorrect!")
+	   }
+	}
+	/*conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil { 
 		fmt.Println("Error creating connection ", err)
 		return
-	}
+	}*/
 
 }
-
+/*
 func announceWinner(){
+
+	// get the final score of both players
+	// compare and announce who the winner is
 
 }*/
 
 func main(){
-        
+
+	var wg sync.WaitGroup
+	ansChan := make(chan Question)
 	/*http.HandleFunc("/questions", sendQuestions)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/respond", evaluateAnswer)
@@ -78,7 +125,17 @@ func main(){
 	if err != nil { panic("Failed to connect") }
 	db.AutoMigrate(&User{})
         db.AutoMigrate(&Question{})
+        
+	wg.Add(1)
+	go createQuestions(db, &wg)
 
+	wg.Add(1)
+	go sendQuestions(db, ansChan, &wg)
+
+	wg.Add(1)
+	go evaluateAnswer(ansChan, &wg)
+
+	wg.Wait()
 	//questionChan := make(chan Question)
 	fmt.Println("hellow go")
 }
