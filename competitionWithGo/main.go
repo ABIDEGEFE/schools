@@ -4,9 +4,12 @@ package main
 import (
 
 	"fmt"
+       // "encoding/json"
+	// "strings"
 	"sync"
-	// "net/http"
-	// "github.com/gorilla/websocket"
+	"log"
+	"net/http"
+	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
 	"gorm.io/driver/postgres"
 )
@@ -41,10 +44,12 @@ func createQuestions(db *gorm.DB, wg *sync.WaitGroup){
 	fmt.Println("Inserted ........")
 
 }
-/*var upgrader = websocket.Upgrader(
+var upgrader = websocket.Upgrader{
 
-	// CheckOrigin: func(r *http.Request)bool{ return true }
-)*/
+	CheckOrigin: func(r *http.Request)bool {
+            return true
+	},
+}
 
 /*type Question struct {
 
@@ -53,9 +58,10 @@ func createQuestions(db *gorm.DB, wg *sync.WaitGroup){
 	Text string
 
 }*/
-func sendQuestions(db *gorm.DB, ques chan <- Question, wg *sync.WaitGroup){
+func sendQuestions(w http.ResponseWriter, r *http.Request, db *gorm.DB){
         
-	defer wg.Done()
+	fmt.Println("start of sendQuestion")
+
 	var question Question
 	// Qustions would be retrived randomly from the database
 	randomId := 1
@@ -65,43 +71,59 @@ func sendQuestions(db *gorm.DB, ques chan <- Question, wg *sync.WaitGroup){
 	       return
 	}
 
-	ques <- question
-        close(ques)
-	/*conn, err := upgrader.Upgrade(w, r, nil)
+
+	fmt.Println("after sending channel...")
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 
 		fmt.Println("Error creating connection ", err)
 		return
-	}*/
+	}
 
+	response := map[string]string{
+		"Text": question.Text,
+	}
+
+	err = conn.WriteJSON(response)
+
+	if err != nil {
+            fmt.Println("Error while sending questions ....", err)
+	    return
+    } 
+        
+	for {
+
+		var req struct {
+                    Answer string `json:"answer"`
+		}
+                
+		err := conn.ReadJSON(&req)
+		if err != nil {
+                   fmt.Println("Error while reading answers ", err)
+		}
+                
+	        if req.Answer == "close" {
+		     break
+	        }
+		result := "0"
+		fmt.Println(req.Answer, question.Answer)
+
+                if req.Answer == question.Answer {
+			result = "1"
+		}
+
+		conn.WriteJSON(map[string]string{"message": result})
+	}
+        defer conn.Close()
+        //fmt.Println("questions sent for the client")	
+        //ques <- question
+	//close(ques)
 }
 /*
 func login(){
 
 }
 */
-func evaluateAnswer(quse <- chan Question, wg *sync.WaitGroup){
-        
-	defer wg.Done()
-	//simulate user answer
-	userAnswer := "True"
-	
-	for res := range quse{
-           if userAnswer == res.Answer{
-	      // return true for the client
-              fmt.Println("Correct!")
-	   }else{
-	      // return false for the client
-              fmt.Println("Incorrect!")
-	   }
-	}
-	/*conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil { 
-		fmt.Println("Error creating connection ", err)
-		return
-	}*/
-
-}
 /*
 func announceWinner(){
 
@@ -113,9 +135,9 @@ func announceWinner(){
 func main(){
 
 	var wg sync.WaitGroup
-	ansChan := make(chan Question)
-	/*http.HandleFunc("/questions", sendQuestions)
-	http.HandleFunc("/login", login)
+//	ansChan := make(chan Question)
+	//http.HandleFunc("/questions", sendQuestions(db, ansChan, &wg))
+	/*http.HandleFunc("/login", login)
 	http.HandleFunc("/respond", evaluateAnswer)
 	http.HandleFunc("/result", announceWinner)*/
 
@@ -126,16 +148,31 @@ func main(){
 	db.AutoMigrate(&User{})
         db.AutoMigrate(&Question{})
         
-	wg.Add(1)
-	go createQuestions(db, &wg)
+	http.HandleFunc("/questions", func(w http.ResponseWriter, r *http.Request){
+                 
+		go sendQuestions(w, r, db)
+		fmt.Println("check ..")
 
-	wg.Add(1)
-	go sendQuestions(db, ansChan, &wg)
+	})
 
-	wg.Add(1)
-	go evaluateAnswer(ansChan, &wg)
+	/*http.HandleFunc("/result", func(w http.ResponseWriter, r *http.Request){
+	     wg.Add(1)
+             go evaluateAnswer(w, r, ansChan, &wg)
+	})*/
 
-	wg.Wait()
+	fmt.Println("Connecting........")
+
+	log.Fatal(http.ListenAndServe(":8080", nil))
+	//wg.Add(1)
+	//go createQuestions(db, &wg)
+
+	//wg.Add(1)
+	//go sendQuestions(w, r, db, ansChan, &wg)
+
+	//wg.Add(1)
+	//go evaluateAnswer(ansChan, &wg)
+
+	//wg.Wait()
 	//questionChan := make(chan Question)
 	fmt.Println("hellow go")
 }
