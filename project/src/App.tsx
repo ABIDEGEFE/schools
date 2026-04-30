@@ -17,6 +17,7 @@ import { ExamsPage } from './pages/ExamsPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { LicensingPage } from './pages/LicensingPage';
 import { MaterialBankPage } from './pages/MaterialBankPage';
+import { CompetitionPage } from './pages/CompetitionPage';
 
 // Admin Pages
 import { UserManagementPage } from './pages/admin/UserManagementPage';
@@ -102,6 +103,14 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <UserProfilePage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/competition" element={
+              <ProtectedRoute>
+                <Layout>
+                  <CompetitionPage />
                 </Layout>
               </ProtectedRoute>
             } />

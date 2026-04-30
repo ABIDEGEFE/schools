@@ -39,17 +39,21 @@ class SchoolViewSet(viewsets.ModelViewSet):
 class UserViewSet(viewsets.ModelViewSet):
 	queryset = models.User.objects.all()
 	serializer_class = serializers.UserSerializer
-	# permission_classes = [ReadOnlyOrCreatePermission]
-
-	@method_decorator(ensure_csrf_cookie)
+    
+	@method_decorator(csrf_exempt)
 	@action(detail=False, methods=['post'])
 	def login_view(self, request):
 		username = request.data.get('username')
 		password = request.data.get('password')
-		print("Login attempt for username:", username)
+		school_id = request.data.get('schoolId')
+	
 		user = authenticate(request, username=username, password=password)
-		print('2Login authentication result:', user)
+		
 		if user is not None:
+			if user.school_id != school_id:
+				return Response({'detail': 'Invalid credentials for this school'}, status=401)
+			else:
+				print("Authentication successful for user:", user.username, "in school ID:", school_id)
 			login(request, user)
 			user = request.user
 			
@@ -97,6 +101,10 @@ class UserViewSet(viewsets.ModelViewSet):
 			return resp
 		except Exception as e:
 			return Response({'detail': f'Logout failed: {e}'}, status=400)
+
+	@action(detail=False, methods=['post'])
+	def user_register(self, request):
+		return super().create(request)
 			
 
 	@action(detail=False, methods=['get'], url_path=r'get_users_by_school/(?P<school_id>[^/.]+)')

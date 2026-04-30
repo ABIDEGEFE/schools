@@ -15,13 +15,14 @@ const getCsrfToken = (): string | undefined => {
 // NOTE: this file used some mock helpers during initial scaffolding; keep focused helpers only
 export const api = {
 
-  login: async (username: string, password: string) => {
-    const response = await fetchWithCreds('http://localhost:8000/api/users/login_view/', {
+  login: async (username: string, password: string, schoolId: string) => {
+    const response = await fetchWithCreds(`http://localhost:8000/api/users/login_view/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, schoolId }),
     });
     // console.log("Login response:", response);
     if (!response.ok) {
@@ -142,7 +143,7 @@ export const api = {
 
   // Users
   registerAdmin: async (adminData: { name: string; email: string; password: string; schoolId: string; role: string }): Promise<User> => {
-    const response = await fetchWithCreds('http://localhost:8000/api/register/', {
+    const response = await fetchWithCreds('http://localhost:8000/api/users/user_register/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -389,7 +390,8 @@ export const api = {
     const response = await fetchWithCreds('http://localhost:8000/api/announcements/', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
       },
       body: JSON.stringify(announcement),
     });

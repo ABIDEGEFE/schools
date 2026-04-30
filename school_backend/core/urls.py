@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
+
 router = DefaultRouter()
 router.register(r'schools', views.SchoolViewSet)
 router.register(r'users', views.UserViewSet)
@@ -25,4 +26,4 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     # Legacy/custom endpoints consolidated into core.views
 ]
- 
+

@@ -8,16 +8,17 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 """
 
 
-from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
-from django.core.asgi import get_asgi_application
 import os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'school_backend.settings')
+
+from django.core.asgi import get_asgi_application
+django_asgi_app = get_asgi_application()
+
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.auth import AuthMiddlewareStack
+
 import school_backend.routing as routing
 
-
-
-django_asgi_app = get_asgi_application()
 
 application = ProtocolTypeRouter({
 	"http": django_asgi_app,

@@ -9,7 +9,7 @@ import { Search, MapPin } from 'lucide-react';
 
 export const SchoolListPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setSelectedSchool } = useAuth();
+  const { setSelectedSchool, getSchoolName } = useAuth();
   const [schools, setSchools] = useState<School[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -34,8 +34,9 @@ export const SchoolListPage: React.FC = () => {
     school.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
  
-  const handleSchoolSelect = (schoolId: string) => {
+  const handleSchoolSelect = (schoolId: string, schoolName: string) => {
     setSelectedSchool(schoolId);
+    getSchoolName(schoolName);
     navigate('/login');
   };
 
@@ -76,7 +77,7 @@ export const SchoolListPage: React.FC = () => {
             <div
               key={school.id}
               className="bg-white rounded-lg shadow-md p-6 cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-105"
-              onClick={() => handleSchoolSelect(school.id)}
+              onClick={() => handleSchoolSelect(school.id, school.name)}
             >
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">{school.name}</h3>
@@ -95,7 +96,7 @@ export const SchoolListPage: React.FC = () => {
                   className="w-full"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleSchoolSelect(school.id);
+                    handleSchoolSelect(school.id, school.name);
                   }}
                 >
                   Select School

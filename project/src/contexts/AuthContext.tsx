@@ -8,6 +8,7 @@ export interface User {
   email: string;
   role: 'AD' | 'TC' | 'ST' | 'SA'; // Admin, Teacher, Student, Super Admin
   schoolId: string;
+  schoolName: string;
   status: 'green' | 'yellow' | 'red';
   is_licensed: boolean;
   wins: number;
@@ -17,6 +18,7 @@ export interface User {
 interface AuthState {
   user: User | null;
   selectedSchoolId: string | null;
+  selectedSchoolName: string | null;
   isAuthenticated: boolean;
   loading: boolean;
   competition: Competition;
@@ -38,6 +40,7 @@ type AuthAction =
   | { type: 'LOGIN_SUCCESS'; payload: User }
   | { type: 'LOGOUT' }
   | { type: 'SET_SELECTED_SCHOOL'; payload: string }
+  | { type: 'GET_SCHOOL_NAME'; payload: string }
   | { type: 'UPDATE_USER'; payload: Partial<User> }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'UPDATE_COMPETITION'; payload: Partial<Competition> }
@@ -46,6 +49,8 @@ type AuthAction =
 const initialState: AuthState = {
   user: null,
   selectedSchoolId: localStorage.getItem('selectedSchoolId'),
+  selectedSchoolName: localStorage.getItem('selectedSchoolName'),
+
   isAuthenticated: false,
   loading: false,
   competition: { status: 'none' },
@@ -92,6 +97,11 @@ function authReducerBase(state: AuthState, action: AuthAction): AuthState {
         ...state,
         selectedSchoolId: action.payload,
       };
+    case 'GET_SCHOOL_NAME':
+      return {
+        ...state,
+        selectedSchoolName: action.payload,
+      };
     case 'UPDATE_USER':
       return {
         ...state,
@@ -109,9 +119,10 @@ function authReducerBase(state: AuthState, action: AuthAction): AuthState {
 
 interface AuthContextType {
   state: AuthState;
-  login: (email: string, password: string, schoolID: string) => Promise<void>;
+  login: (email: string, password: string, schoolId: string) => Promise<void>;
   logout: () => void;
   setSelectedSchool: (schoolId: string) => void;
+  getSchoolName: (schoolName: string) => void;
   updateUser: (updates: Partial<User>) => void;
   updateCompetition: (updates: Partial<Competition>) => void;
   resetCompetition: () => void;
@@ -131,9 +142,9 @@ export const  useAuth = () => {
 export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
   
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string, schoolId: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
-  const userInfo = await api.login(username, password);
+  const userInfo = await api.login(username, password, schoolId);
   // userInfo shape may be flexible; cast to expected type for reducer
   dispatch({ type: 'LOGIN_SUCCESS', payload: userInfo as any });
 
@@ -174,6 +185,11 @@ export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
     }
     console.log('Logging out user');
     dispatch({ type: 'LOGOUT' });
+  };
+
+  const getSchoolName = (schoolName: string) => {
+    localStorage.setItem('selectedSchoolName', schoolName);
+    dispatch({ type: 'GET_SCHOOL_NAME', payload: schoolName });
   };
 
   const setSelectedSchool = (schoolId: string) => {
@@ -301,6 +317,7 @@ export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
     updateUser,
     updateCompetition,
     resetCompetition,
+    getSchoolName,
   };
 
   return (

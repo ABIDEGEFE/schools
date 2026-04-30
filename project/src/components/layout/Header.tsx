@@ -13,6 +13,8 @@ export const Header: React.FC = () => {
   const [bellClicked, setBellClicked] = React.useState(false);
   const navigate = useNavigate();
 
+  // const schoolName = localStorage.getItem('selectedSchoolName') || 'Schools';
+
   const handleLogout = () => {
     logout();
   };
@@ -29,6 +31,10 @@ export const Header: React.FC = () => {
             <Link to="/" className="flex items-center">
               <h1 className="text-xl font-bold text-blue-600">Schools</h1>
             </Link>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            {state.selectedSchoolName}
           </div>
 
           {state.isAuthenticated && (
@@ -67,6 +73,7 @@ export const Header: React.FC = () => {
                       : 'Student'}
                   </p>
                 </div>
+          
               </div>
 
               <Button 

@@ -16,13 +16,13 @@ export const LoginPage: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   
-  
+  const schoolId = state.selectedSchoolId || localStorage.getItem('selectedSchoolId') || '';
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await login(formData.username, formData.password);
+      await login(formData.username, formData.password, schoolId);
       addNotification({
         message: 'Successfully logged in!',
         type: 'success'
@@ -61,7 +61,7 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">Sign in to EduConnect</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Sign in to <span className="text-blue-500">schools</span></h2>
           <p className="mt-2 text-sm text-gray-600">
             Access your educational portal
           </p>
@@ -70,15 +70,15 @@ export const LoginPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Username
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
                   id="email"
                   name="username" 
-                  type="email"
+                  type="username"
                   onChange={handleInputChange}
                   required
                   value={formData.username}
