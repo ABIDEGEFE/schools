@@ -16,7 +16,7 @@ export const CompetitionPage: React.FC = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-2">Math Olympiad</h2>
             <p className="text-gray-600 mb-4">Compete in challenging math problems and showcase your skills.</p>
-            <Button variant="primary">Join Competition</Button>
+            <Button variant="primary">Compete now</Button>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
