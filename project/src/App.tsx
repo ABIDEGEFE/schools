@@ -18,6 +18,7 @@ import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { LicensingPage } from './pages/LicensingPage';
 import { MaterialBankPage } from './pages/MaterialBankPage';
 import { CompetitionPage } from './pages/CompetitionPage';
+import StartCompetitionPage from './pages/StartCompetitionPage';
 
 // Admin Pages
 import { UserManagementPage } from './pages/admin/UserManagementPage';
@@ -111,6 +112,13 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <CompetitionPage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/start-competition" element={
+              <ProtectedRoute>
+                <Layout>
+                  <StartCompetitionPage />
                 </Layout>
               </ProtectedRoute>
             } />

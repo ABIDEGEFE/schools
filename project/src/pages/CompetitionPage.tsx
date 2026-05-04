@@ -1,8 +1,15 @@
 import React from 'react';
 import { Button } from '../components/common/Button';
+import { useNavigate } from 'react-router-dom';
 
 
 export const CompetitionPage: React.FC = () => {
+
+  const navigate = useNavigate();
+
+  const handleCompeteNow = () => {
+    navigate('/start-competition');
+  }
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -16,13 +23,17 @@ export const CompetitionPage: React.FC = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-2">Math Olympiad</h2>
             <p className="text-gray-600 mb-4">Compete in challenging math problems and showcase your skills.</p>
-            <Button variant="primary">Compete now</Button>
+            <Button variant="primary" onClick={handleCompeteNow}>
+              Compete now
+            </Button>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-2">Science Fair</h2>
             <p className="text-gray-600 mb-4">Present your science projects and innovations.</p>
-            <Button variant="primary">Join Competition</Button>
+            <Button variant="primary" onClick={handleCompeteNow}>
+              Join Competition
+            </Button>
           </div>
 
           {/* Add more competition cards as needed */}
