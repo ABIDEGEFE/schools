@@ -10,6 +10,7 @@ interface Question {
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 type AnswerFeedback = 'correct' | 'wrong' | null;
+type GameResult = 'winner' | 'loser' | 'draw' | null;
 
 const StartCompetitionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ const StartCompetitionPage: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(120); // 2 minutes
   const [hasAnswered, setHasAnswered] = useState(false);
   const [opponentStatus, setOpponentStatus] = useState<'thinking' | 'answered'>('thinking');
-  const [gameResult, setGameResult] = useState<'winner' | 'loser' | 'draw' | null>(null);
+  const [gameResult, setGameResult] = useState<GameResult>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [answerFeedback, setAnswerFeedback] = useState<AnswerFeedback>(null);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -37,6 +38,7 @@ const StartCompetitionPage: React.FC = () => {
 
   const resolveWsUrl = () => {
     const envUrl = import.meta.env.VITE_COMPETITION_WS_URL as string | undefined;
+    // console.log('This is ws environment url')
     if (envUrl && envUrl.trim().length > 0) {
       return envUrl;
     }
@@ -54,6 +56,7 @@ const StartCompetitionPage: React.FC = () => {
       : null) as Record<string, unknown> | null;
 
     const source = nested ?? data;
+    
     const textCandidate = source.text ?? source.Text;
     if (typeof textCandidate !== 'string' || textCandidate.trim().length === 0) {
       return null;
@@ -262,7 +265,7 @@ const StartCompetitionPage: React.FC = () => {
         <div className="relative w-1/2 bg-black flex items-center justify-center">
           <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover" />
           <div className="absolute bottom-4 right-4 bg-black/50 px-2 py-1 rounded text-sm">
-            Opponent {opponentStatus === 'answered' && "✅"}
+            {state.competition.opponent?.name || "Opponent"} : {opponentStatus === 'thinking' ? "Thinking..." : "Answered"}
           </div>
           {/* Status Overlay */}
           <div className="absolute top-4 right-4 text-xs font-mono uppercase tracking-widest text-yellow-500">

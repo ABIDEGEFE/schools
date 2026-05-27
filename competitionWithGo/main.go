@@ -1,178 +1,144 @@
 package main
 
-
 import (
-
+	"encoding/json"
 	"fmt"
-       // "encoding/json"
-	// "strings"
-	"sync"
 	"log"
 	"net/http"
+
 	"github.com/gorilla/websocket"
-	"gorm.io/gorm"
 	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 type User struct {
-
-	ID uint `gorm:"primaryKey"`
+	ID       uint   `gorm:"primaryKey"`
 	Username string `gorm:"size:255;not null"`
-	Email string `gorm:"uniqueIndex;not null"`
+	Email    string `gorm:"uniqueIndex;not null"`
 }
 
 type Question struct {
-
-	Qid uint `gorm:"primaryKey"`
-	Text string `gorm:"not null"`
-	Answer string `gorm:"not null"`
+	gorm.Model
+	Qid     uint     `gorm:"primaryKey"`
+	Text    string   `gorm:"not null" json:"text"`
+	Answer  string   `gorm:"not null" json:"answer"`
+	Options []string `gorm:"serializer:json" json:"options"` // Fixed: Capitalized 'Options' so it's exported and visible to JSON/GORM
 }
 
-func createQuestions(db *gorm.DB, wg *sync.WaitGroup){
-	defer wg.Done()
-	questions := Question {
-         
-		Text: "Ethiopia is found in Asia",
-		Answer: "False",
-           
+func createQuestions(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
+	var q Question
+	err := json.NewDecoder(r.Body).Decode(&q)
+	if err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
 	}
 
-	res := db.Create(&questions)
+	res := db.Create(&q)
 	if res.Error != nil {
-           fmt.Println("Error while inseting data.. ", res.Error)
+		fmt.Println("Error while inserting data.. ", res.Error)
+		http.Error(w, "Database insertion failed", http.StatusInternalServerError)
+		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(q)
 	fmt.Println("Inserted ........")
-
 }
-var upgrader = websocket.Upgrader{
 
-	CheckOrigin: func(r *http.Request)bool {
-            return true
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
 	},
 }
 
-/*type Question struct {
-
-	QuestionId int
-        Answer string
-	Text string
-
-}*/
-func sendQuestions(w http.ResponseWriter, r *http.Request, db *gorm.DB){
-        
+func sendQuestions(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
 	fmt.Println("start of sendQuestion")
 
 	var question Question
-	// Qustions would be retrived randomly from the database
 	randomId := 1
-	res := db.Find(&question, randomId)
+	res := db.First(&question, randomId) // Fixed: Changed 'Find' to 'First' to avoid empty slice bugs when looking for one item
 	if res.Error != nil {
-               fmt.Println("Error while retrieving....")
-	       return
+		fmt.Println("Error while retrieving question:", res.Error)
+		http.Error(w, "Question not found", http.StatusNotFound)
+		return
 	}
 
-
-	fmt.Println("after sending channel...")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-
 		fmt.Println("Error creating connection ", err)
 		return
 	}
+	defer conn.Close() // Fixed: Moved 'defer' immediately after the upgrade so it ALWAYS cleans up when this function exits
 
 	response := map[string]string{
 		"Text": question.Text,
 	}
 
 	err = conn.WriteJSON(response)
-
 	if err != nil {
-            fmt.Println("Error while sending questions ....", err)
-	    return
-    } 
-        
-	for {
+		fmt.Println("Error while sending questions ....", err)
+		return
+	}
+	// fmt.Println("Question sent to client successfully!")
 
+	for {
+		fmt.Println("Waiting for client's answer...")
 		var req struct {
-                    Answer string `json:"answer"`
+			Answer string `json:"answer"`
 		}
-                
+
 		err := conn.ReadJSON(&req)
 		if err != nil {
-                   fmt.Println("Error while reading answers ", err)
+			fmt.Println("Client disconnected or read error: ", err)
+			break // Fixed: Must break out of the loop if reading fails, or it will loop infinitely causing high CPU / panics
 		}
-                
-	        if req.Answer == "close" {
-		     break
-	        }
-		result := "0"
-		fmt.Println(req.Answer, question.Answer)
+        fmt.Println("Received answer from client:", req.Answer)
+		if req.Answer == "close" {
+			break
+		}
 
-                if req.Answer == question.Answer {
+		result := "0"
+		fmt.Println("Client answered:", req.Answer, "Correct answer:", question.Answer)
+
+		if req.Answer == question.Answer {
 			result = "1"
 		}
 
-		conn.WriteJSON(map[string]string{"message": result})
+		err = conn.WriteJSON(map[string]string{"message": result})
+		if err != nil {
+			fmt.Println("Error writing response to client:", err)
+			break
+		}
 	}
-        defer conn.Close()
-        //fmt.Println("questions sent for the client")	
-        //ques <- question
-	//close(ques)
+	fmt.Println("WebSocket connection gracefully closed.")
 }
-/*
-func login(){
 
-}
-*/
-/*
-func announceWinner(){
-
-	// get the final score of both players
-	// compare and announce who the winner is
-
-}*/
-
-func main(){
-
-	var wg sync.WaitGroup
-//	ansChan := make(chan Question)
-	//http.HandleFunc("/questions", sendQuestions(db, ansChan, &wg))
-	/*http.HandleFunc("/login", login)
-	http.HandleFunc("/respond", evaluateAnswer)
-	http.HandleFunc("/result", announceWinner)*/
-
-	dsn := "host=localhost user=postgres password=12345678 dbname=competition port=5432 sslmode=disable"
+func main() {
+	dsn := "host=localhost user=postgres password=12345678 dbname=schoolsdb port=5432 sslmode=disable"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		// Log the actual error message to see why your DB connection is failing!
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
 
-	if err != nil { panic("Failed to connect") }
+	fmt.Println("Database connected successfully!")
+
 	db.AutoMigrate(&User{})
-        db.AutoMigrate(&Question{})
-        
-	http.HandleFunc("/questions", func(w http.ResponseWriter, r *http.Request){
-                 
-		go sendQuestions(w, r, db)
-		fmt.Println("check ..")
+	db.AutoMigrate(&Question{})
 
+	http.HandleFunc("/questions", func(w http.ResponseWriter, r *http.Request) {
+		sendQuestions(w, r, db)
 	})
 
-	/*http.HandleFunc("/result", func(w http.ResponseWriter, r *http.Request){
-	     wg.Add(1)
-             go evaluateAnswer(w, r, ansChan, &wg)
-	})*/
+	http.HandleFunc("/createQuestion", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		createQuestions(w, r, db)
+	})
 
-	fmt.Println("Connecting........")
-
+	fmt.Println("Server starting on :8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
-	//wg.Add(1)
-	//go createQuestions(db, &wg)
-
-	//wg.Add(1)
-	//go sendQuestions(w, r, db, ansChan, &wg)
-
-	//wg.Add(1)
-	//go evaluateAnswer(ansChan, &wg)
-
-	//wg.Wait()
-	//questionChan := make(chan Question)
-	fmt.Println("hellow go")
 }
