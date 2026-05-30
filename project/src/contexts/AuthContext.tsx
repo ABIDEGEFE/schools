@@ -163,6 +163,7 @@ export const AuthProvider: React.FC<{children:ReactNode}> = ({ children }) => {
         const comp = comps[0];
         const opponent = comp.sender?.id === userInfo.id ? comp.receiver : comp.sender;
         const isReceiver = comp.receiver?.id === userInfo.id;
+        // console.log('Initial competition loaded on login:', comp);
         dispatch({ type: 'UPDATE_COMPETITION', payload: {
           id: comp.id,
           status: comp.status,

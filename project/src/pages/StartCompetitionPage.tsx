@@ -15,7 +15,6 @@ type GameResult = 'winner' | 'loser' | 'draw' | null;
 const StartCompetitionPage: React.FC = () => {
   const navigate = useNavigate();
   const { state }= useAuth();
-
   // Game State
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState(120); // 2 minutes
@@ -88,6 +87,8 @@ const StartCompetitionPage: React.FC = () => {
       setStatusMessage('Received malformed message from server.');
       return;
     }
+
+    console.log('Received message from server:', parsed);
 
     if (!parsed || typeof parsed !== 'object') return;
 
@@ -203,7 +204,7 @@ const StartCompetitionPage: React.FC = () => {
     setHasAnswered(true);
     setIsSubmittingAnswer(true);
     setStatusMessage('Answer submitted. Waiting for evaluation...');
-
+    // console.log('checking competition: ', state.competition);
     wsRef.current.send(JSON.stringify({
       answer: option,
       questionId: currentQuestion.id,

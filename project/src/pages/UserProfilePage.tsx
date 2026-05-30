@@ -22,7 +22,7 @@ export const UserProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const user = state.user;
   const competition = state.competition;
-  
+  // console.log('Rendering UserProfilePage with user:', user, 'and competition:', competition);
 
   const [isSenderModalOpen, setSenderModalOpen] = useState(false);
   const [isReceiverModalOpen, setReceiverModalOpen] = useState(false);
@@ -148,7 +148,7 @@ export const UserProfilePage: React.FC = () => {
       competitionAnimated = true;
       competitionAction = () => {
         navigate('/competition');
-        resetCompetition();
+        // resetCompetition();
       };
       competitionInfo = (
         <div className="text-sm text-red-700 mt-2 font-semibold">
@@ -160,7 +160,7 @@ export const UserProfilePage: React.FC = () => {
     // Default: make competition
     competitionAction = () => {
       // Reset any previous competition state
-      resetCompetition();
+      // resetCompetition();
       navigate('/explore/schools');
     };
   }
