@@ -168,3 +168,12 @@ class Competition(models.Model):
 	def __str__(self):
 		return f"Competition {self.id}: {self.sender_id} -> {self.receiver_id} ({self.status})"
 
+class Competition_result(models.Model):
+	id = models.CharField(max_length=36, primary_key=True)
+	userId = models.ForeignKey(User, on_delete=models.CASCADE, related_name='competition_results')
+	opponentId = models.ForeignKey(User, on_delete=models.CASCADE, related_name='opponent_results')
+	Result = models.IntegerField()  # total number of answers correct by the user
+	competitionId = models.ForeignKey(Competition, on_delete=models.CASCADE, related_name='results')
+
+	def __str__(self):
+		return f"Competition Result {self.id}: User {self.userId_id} vs Opponent {self.opponentId_id} - Result: {self.result}"

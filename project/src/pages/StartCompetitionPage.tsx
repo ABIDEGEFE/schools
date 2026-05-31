@@ -27,6 +27,7 @@ const StartCompetitionPage: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [statusMessage, setStatusMessage] = useState('Connecting to competition server...');
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
+  const [result, setResult] = useState(0);
 
   // Video Refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -99,11 +100,19 @@ const StartCompetitionPage: React.FC = () => {
       setOpponentStatus(opponentState);
     }
 
-    const winnerResult = msg.result;
-    const typedResult = msg.type === 'game_result' ? msg.outcome ?? msg.result : null;
-    const result = typedResult ?? winnerResult;
-    if (result === 'winner' || result === 'loser' || result === 'draw') {
-      setGameResult(result);
+    // Handle structured game_result from server: contains `results`, `winnerId`, and `draw`
+    if (msg.type === 'game_result') {
+      const isDraw = msg.draw === true;
+      const winnerId = typeof msg.winnerId === 'string' ? msg.winnerId : '';
+      let outcome: GameResult = null;
+      if (isDraw) {
+        outcome = 'draw';
+      } else if (winnerId && state.user && String(state.user.id) === String(winnerId)) {
+        outcome = 'winner';
+      } else {
+        outcome = 'loser';
+      }
+      setGameResult(outcome);
       setStatusMessage('Competition completed.');
       return;
     }
@@ -121,6 +130,7 @@ const StartCompetitionPage: React.FC = () => {
       setAnswerFeedback(isCorrect ? 'correct' : 'wrong');
       setStatusMessage(isCorrect ? 'Correct answer. Waiting for next question...' : 'Wrong answer. Waiting for next question...');
       setOpponentStatus('answered');
+      setResult((prev) => prev + (isCorrect ? 1 : 0));
       setIsSubmittingAnswer(false);
     }
 
@@ -211,6 +221,7 @@ const StartCompetitionPage: React.FC = () => {
       competitionId: state.competition.id,
       userId: state.user?.id,
       opponentId: state.competition.opponent?.id,
+      Result: result,
     }));
   };
 
