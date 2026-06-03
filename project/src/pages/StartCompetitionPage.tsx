@@ -195,8 +195,10 @@ const StartCompetitionPage: React.FC = () => {
       }
       try {
         wsRef.current?.close();
+        console.log('WebSocket connection closed');
       } catch {
         // no-op
+        console.error('Error occurred while closing WebSocket');
       }
       wsRef.current = null;
     };
