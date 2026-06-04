@@ -14,7 +14,7 @@ type GameResult = 'winner' | 'loser' | 'draw' | null;
 
 const StartCompetitionPage: React.FC = () => {
   const navigate = useNavigate();
-  const { state }= useAuth();
+  const { state, resetCompetition }= useAuth();
   // Game State
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState(120); // 2 minutes
@@ -35,6 +35,11 @@ const StartCompetitionPage: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
+
+  const resetCompetitionState = () => {
+    resetCompetition();
+    navigate('/profile');
+  };
 
   const resolveWsUrl = () => {
     const envUrl = import.meta.env.VITE_COMPETITION_WS_URL as string | undefined;
@@ -164,6 +169,14 @@ const StartCompetitionPage: React.FC = () => {
       socket.onopen = () => {
         setConnectionStatus('connected');
         setStatusMessage('Connected. Waiting for first question...');
+
+        const initPayload = {
+          action: 'join_competition',
+          competitionId: state.competition.id,
+          userId: state.user?.id,
+          opponentId: state.competition.opponent?.id,
+        }
+        socket.send(JSON.stringify(initPayload));
       };
 
       socket.onmessage = (event) => {
@@ -337,7 +350,7 @@ const StartCompetitionPage: React.FC = () => {
                 YOU {gameResult.toUpperCase()}!
               </h1>
               <button 
-                onClick={() => navigate('/profile')}
+                onClick={resetCompetitionState}
                 className="mt-6 bg-white text-black px-8 py-3 rounded-full font-bold"
               >
                 Return to Home
