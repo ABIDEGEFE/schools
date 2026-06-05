@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { api } from '../utils/api';
 
 interface Question {
   id: string;
@@ -38,6 +39,8 @@ const StartCompetitionPage: React.FC = () => {
 
   const resetCompetitionState = () => {
     resetCompetition();
+    const response = api.updateCompetition(state.competition?.id || '', { status: 'none' });
+    console.log('Reset competition response:', response);
     navigate('/profile');
   };
 

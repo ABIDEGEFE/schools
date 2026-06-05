@@ -70,20 +70,15 @@ type Hub struct {
 	mu            sync.Mutex
 	rooms         map[string]map[*Client]bool
 	questionIndex map[string]int 
-	// answers       map[string]map[string]bool // check if a user has answered the current question in a room
 	questions     []Question
 	// track how many answers each user has submitted per room
 	answerCounts   map[string]map[string]int // room -> userId -> count
 	// mark when a user finished all questions for a room
 	finished       map[string]map[string]bool // room -> userId -> finished
-	// mark when a user's final result has been saved to DB
-	// savedResults   map[string]map[string]bool // room -> userId -> saved
 	// total questions expected per room
 	totalQuestions map[string]int // room -> total questions
 	// track how many correct answers each user has per room
 	correctCounts  map[string]map[string]int // room -> userId -> correctCount
-	// connectedClients map[string]int // room -> number of connected clients
-	// players map[string]map[string]bool
 }
 
 func newHub() *Hub { // initialize all maps in the Hub struct
@@ -171,54 +166,6 @@ func (h *Hub) unregister(c *Client) {
 	// }
 }
 
-// func (h *Hub) moveClientRoom(c *Client, newRoom string) {
-// 	h.mu.Lock()
-// 	defer h.mu.Unlock()
-// 	oldRoom := c.competitionId
-// 	if oldConns, ok := h.rooms[oldRoom]; ok {
-// 		delete(oldConns, c) // remove client from old room
-// 		// h.connectedClients[oldRoom] -= 1
-// 		if len(oldConns) == 0 {
-// 			delete(h.rooms, oldRoom)
-// 			delete(h.questionIndex, oldRoom)
-// 			// delete(h.answers, oldRoom)
-// 		}
-// 	}
-// 	if _, ok := h.rooms[newRoom]; !ok {
-// 		h.rooms[newRoom] = make(map[*Client]bool)
-// 	}
-// 	h.rooms[newRoom][c] = true // add client to new room
-// 	// h.connectedClients[newRoom] += 1
-// 	// if _, ok := h.answers[newRoom]; !ok {
-// 	// 	h.answers[newRoom] = make(map[string]bool)
-// 	// }
-// 	if _, ok := h.answerCounts[newRoom]; !ok {
-// 		h.answerCounts[newRoom] = make(map[string]int)
-// 	}
-// 	if _, ok := h.finished[newRoom]; !ok {
-// 		h.finished[newRoom] = make(map[string]bool)
-// 	}
-// 	if _, ok := h.savedResults[newRoom]; !ok {
-// 		h.savedResults[newRoom] = make(map[string]bool)
-// 	}
-// 	if _, ok := h.correctCounts[newRoom]; !ok {
-// 		h.correctCounts[newRoom] = make(map[string]int)
-// 	}
-// 	if _, ok := h.players[newRoom]; !ok {
-//         h.players[newRoom] = make(map[string]bool)
-// 	}
-// 	h.players[newRoom][c.userId] = true
-// 	fmt.Printf("players in room %s: %v\n", newRoom, h.players[newRoom])
-// 	if _, ok := h.totalQuestions[newRoom]; !ok {
-// 		if len(h.questions) > 0 {
-// 			h.totalQuestions[newRoom] = 10
-// 		} else {
-// 			h.totalQuestions[newRoom] = 0
-// 		}
-// 	}
-// 	c.competitionId = newRoom
-// }
-
 func (h *Hub) broadcastToRoom(room string, message any) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -267,17 +214,8 @@ func (h *Hub) getQuestionForRoom(room string) *Question {
 	if len(h.questions) == 0 {
 		return nil
 	}
-	// idx := h.questionIndex[room]
-	// if idx >= len(h.questions) {
-	// 	// wrap-around or random pick
-	// 	idx = rand.Intn(len(h.questions))
-	// 	h.questionIndex[room] = idx
-	// }
+	
 	q := h.questions[0]
-	// // 
-	// h.questionIndex[room] += 1
-	// fmt.Println("question index: ", h.questionIndex[room])
-	// if h.questionIndex[room] == 10 { h.questions = nil } // simulate end of questions after 5 rounds for testing
 	return &q
 }
 
@@ -331,7 +269,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, db *gorm.DB, hub *Hub) {
 	client := &Client{conn: conn, send: make(chan []byte, 16), competitionId: payload.CompetitionId, userId: payload.UserId}
 	
 	// Start a writer goroutine
-	// n := 0
+	
 	go func() {
 		defer conn.Close()
 		// hub.mu.Lock()
@@ -369,19 +307,6 @@ func handleWS(w http.ResponseWriter, r *http.Request, db *gorm.DB, hub *Hub) {
 			fmt.Println("WS read error (client likely disconnected):", err)
 			break
 		}
-        
-		// fmt.Println("Received message from client###3**********: ", raw)
-		// if comp := raw.CompetitionId; comp != "" && comp != client.competitionId {
-		// 	// move client to the specified room without closing the websocket
-		// 	fmt.Printf("Client requested to join competition room: %s\n", comp)
-		// 	hub.moveClientRoom(client, comp)
-		// } 
-
-		// if uid:= raw.UserId; uid != "" {
-		// 	client.userId = uid
-		// 	fmt.Printf("Client set userId: %s\n", uid)
-		// }
-
 		// If this is an answer submission
 		if ans:= raw.Answer; ans != "" {
 			// Evaluate against the current question for the room
@@ -394,10 +319,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, db *gorm.DB, hub *Hub) {
 
 			// Mark this user as answered and increment their per-room answer count
 			hub.mu.Lock()
-			// if _, ok := hub.answers[room]; !ok {
-			// 	hub.answers[room] = make(map[string]bool)
-			// }
-			// hub.answers[room][client.userId] = true
+		
 			if _, ok := hub.answerCounts[room]; !ok {
 				hub.answerCounts[room] = make(map[string]int)
 			}
@@ -409,8 +331,6 @@ func handleWS(w http.ResponseWriter, r *http.Request, db *gorm.DB, hub *Hub) {
 				}
 				hub.correctCounts[room][client.userId] += 1
 			}
-			// answeredCount := len(hub.answers[room]) // number of users who have answered the current question in this room
-			// totalPlayers := len(hub.rooms[room])
 			// ensure totalQuestions is set
 			totalQ := hub.totalQuestions[room]
 			// mark finished if this user reached expected total
@@ -431,7 +351,6 @@ func handleWS(w http.ResponseWriter, r *http.Request, db *gorm.DB, hub *Hub) {
 			if !hub.finished[room][client.userId] {
 				hub.mu.Lock()
 				hub.mu.Unlock()
-				// // hub.answers[room] = make(map[string]bool)
 
 				// small delay so clients can show feedback
 
@@ -450,62 +369,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, db *gorm.DB, hub *Hub) {
 						// instead, ensure we only compute final outcome once every player has finished
 					
 				})
-			}
-
-			// If this submission caused the user to finish all questions, save their final result
-			// (raw should include `Result`, `UserId`, `OpponentId`, `CompetitionId` from client)
-			// ensure raw has the correct competition id
-			// When a user finishes, persist their computed correct count as the final result
-			// if func() bool {
-			// 	hub.mu.Lock()
-			// 	finished := hub.finished[room][client.userId]
-			// 	// saved := hub.savedResults[room][client.userId]
-			// 	hub.mu.Unlock()
-			// 	return finished
-			// }() {
-			// 	// compute server-side correct count
-			// 	hub.mu.Lock()
-			// 	correctCount := hub.correctCounts[room][client.userId]
-			// 	hub.mu.Unlock()
-			// 	cr := Competition_result{
-			// 		UserId:        client.userId,
-			// 		OpponentId:    raw.OpponentId,
-			// 		Result:        correctCount,
-			// 		CompetitionId: room,
-			// 	}
-			// 	if err := db.Omit("answer").Create(&cr).Error; err != nil {
-			// 		fmt.Println("Error saving final result for user:", err)
-			// 	} else {
-			// 		println("competition status saved...#####")
-			// 		hub.mu.Lock()
-			// 		// hub.savedResults[room][client.userId] = true
-			// 		hub.mu.Unlock()
-			// 	}
-			// }
-
-			// Check whether all connected players have finished and their results are saved.
-			// allDone := true
-			// playerIDs := []string{} // reset playerIDs for this check
-			// hub.mu.Lock()
-			// fmt.Println("Connected clients in room ", room, ": ", hub.players)
-			// for c := range hub.rooms[room] {
-			// 	fmt.Println("This is the client user id: ", c.userId)
-			// 	if c.userId != "" {
-			// 		playerIDs = append(playerIDs, c.userId)
-			// 	}
-			// }
-			// fmt.Println("Player IDs in the room: ", playerIDs)
-			/// iterate over the items in the room and check if all players have finished
-			// for i := 0; i < len(playerIDs); i++ {
-			// 	pid := playerIDs[i]
-			// 	fmt.Println("ID of CURRENTLY CONNECTED USERS @@@@@@@@@ ", i, " ", pid)
-			// 	if !hub.finished[room][pid] {
-			// 		fmt.Println("all not done $$$$$$$$$$$$$$4")
-			// 		// allDone = false
-			// 		break
-			// 	}
-			// }
-			// hub.mu.Unlock()
+			}	
 
 			if hub.checkAllDone(room) {
 				results := make(map[string]int)
@@ -517,46 +381,6 @@ func handleWS(w http.ResponseWriter, r *http.Request, db *gorm.DB, hub *Hub) {
 				} else {
 					hub.broadcastToRoom(room, map[string]any{"type": "game_result", "results": results, "winnerId": "", "draw": true})
 				}
-
-				// for i := 0; i < len(playerIDs); i++ {
-				// 	pid := playerIDs[i]
-				// 	fmt.Println("Connected user Ids: ", pid)
-				// 	var cr Competition_result
-				// 	if err := db.Where("competition_id = ? AND user_id = ?", room, pid).First(&cr).Error; err != nil {
-				// 		fmt.Println("Error fetching saved result for user", pid, ":", err)
-				// 		results[pid] = 0
-				// 	} else {
-				// 		fmt.Println("competition result retrived from database ############3")
-				// 		results[pid] = cr.Result
-				// 	}
-				// }
-
-				// compute outcome: identify winner or draw
-				// if len(playerIDs) == 1 {
-				// 	fmt.Println("saved palyer ids **********  ", playerId)
-				// 	hub.broadcastToRoom(room, map[string]any{"type": "game_result", "results": results, "winnerId": playerIDs[0], "draw": false})
-				// 	return
-				// }
-				// find max score and possible winners
-				// maxScore := -1
-				// winners := []string{}
-				// for pid, sc := range results {
-				// 	if sc > maxScore {
-				// 		maxScore = sc
-				// 		winners = []string{pid}
-				// 	} else if sc == maxScore {
-				// 		winners = append(winners, pid)
-				// 	}
-				// }
-				// if len(winners) > 1 {
-				// 	// draw
-				// 	fmt.Println("the competiotion ends up with equal result ", results)
-				// 	hub.broadcastToRoom(room, map[string]any{"type": "game_result", "results": results, "winnerId": "", "draw": true})
-				// } else {
-				// 	// single winner
-				// 	fmt.Println("There is only one winner ", results)
-				// 	hub.broadcastToRoom(room, map[string]any{"type": "game_result", "results": results, "winnerId": winners[0], "draw": false})
-				// }
 			}
 		}
 	}
