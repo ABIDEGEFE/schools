@@ -37,7 +37,10 @@ const StartCompetitionPage: React.FC = () => {
   const reconnectRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
 
-  const resetCompetitionState = () => {
+  const resetCompetitionState = (gameResult: GameResult) => {
+    if (gameResult === 'winner') {
+       api.updateUser(state.user?.id || '', { wins: (state.user?.wins || 0) + 1 });
+    }
     resetCompetition();
     const response = api.updateCompetition(state.competition?.id || '', { status: 'none' });
     console.log('Reset competition response:', response);
@@ -353,7 +356,7 @@ const StartCompetitionPage: React.FC = () => {
                 YOU {gameResult.toUpperCase()}!
               </h1>
               <button 
-                onClick={resetCompetitionState}
+                onClick={() => resetCompetitionState(gameResult)}
                 className="mt-6 bg-white text-black px-8 py-3 rounded-full font-bold"
               >
                 Return to Home

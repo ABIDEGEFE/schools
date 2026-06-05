@@ -191,7 +191,7 @@ export const api = {
 
   updateUser: async (id: string, updates: Partial<User>): Promise<User> => {
     const response = await fetchWithCreds(`http://localhost:8000/api/users/${id}/`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         ...(getCsrfToken() ? { 'X-CSRFToken': getCsrfToken()! } : {}),
