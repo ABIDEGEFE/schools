@@ -281,6 +281,39 @@ const StartCompetitionPage: React.FC = () => {
     }
   }, [timeLeft, gameResult]);
 
+  useEffect(() => {
+        let localStream: MediaStream | null = null;
+
+        async function enableWebcam() {
+          try {
+
+            const stream= await navigator.mediaDevices.getUserMedia({ 
+              video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                facingMode: 'user',
+              },
+              audio: false
+             });
+             localStream = stream;
+             if (localVideoRef.current) {
+              localVideoRef.current.srcObject = stream;
+            }
+
+          } catch (error) {
+            console.error('Error accessing webcam:', error);
+          }
+        }
+
+        enableWebcam();
+          return () => {
+            if (localStream) {
+              localStream.getTracks().forEach(track => track.stop());
+            }
+          };
+        }
+  , []);
+
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white overflow-hidden">
       
@@ -288,7 +321,7 @@ const StartCompetitionPage: React.FC = () => {
       <div className="flex h-1/2 border-b border-gray-700">
         {/* User 1 Video (Local) */}
         <div className="relative w-1/2 border-r border-gray-700 bg-black flex items-center justify-center">
-          <video ref={localVideoRef} autoPlay muted className="w-full h-full object-cover" />
+          <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
           <div className="absolute bottom-4 left-4 bg-black/50 px-2 py-1 rounded text-sm">
             You {hasAnswered && "✅"}
           </div>
@@ -296,7 +329,7 @@ const StartCompetitionPage: React.FC = () => {
 
         {/* User 2 Video (Opponent) */}
         <div className="relative w-1/2 bg-black flex items-center justify-center">
-          <video ref={remoteVideoRef} autoPlay className="w-full h-full object-cover" />
+          <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
           <div className="absolute bottom-4 right-4 bg-black/50 px-2 py-1 rounded text-sm">
             {state.competition.opponent?.name || "Opponent"} : {opponentStatus === 'thinking' ? "Thinking..." : "Answered"}
           </div>
