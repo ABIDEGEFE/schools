@@ -22,16 +22,16 @@ type Question struct {
 	Options []string `gorm:"serializer:json" json:"options"`
 }
 
-type Competition_result struct {
-	action string `json:"action"`
-	ID            uint `gorm:"primaryKey"`
-	UserId        string  `gorm: "not null" json:"userId"`
-	OpponentId    string  `gorm: "not null" json:"opponentId"`
-	Result        int   `gorm: "not null" json:"result"` // total number of answers correct by the user
-	CompetitionId string  `gorm: "not null" json: "competitionId"`
-	Answer		string `gorm: "-" json:"answer"`
-	QuestionId	string   `gorm: "-" json:"questionId"`
-}
+// type Competition_result struct {
+// 	action string `json:"action"`
+// 	ID            uint `gorm:"primaryKey"`
+// 	UserId        string  `gorm: "not null" json:"userId"`
+// 	OpponentId    string  `gorm: "not null" json:"opponentId"`
+// 	Result        int   `gorm: "not null" json:"result"` // total number of answers correct by the user
+// 	CompetitionId string  `gorm: "not null" json: "competitionId"`
+// 	Answer		string `gorm: "-" json:"answer"`
+// 	QuestionId	string   `gorm: "-" json:"questionId"`
+// }
 
 func createQuestions(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
 	var q Question
@@ -320,33 +320,33 @@ func handleWS(w http.ResponseWriter, r *http.Request, db *gorm.DB, hub *Hub) {
 	// Reader loop
 	for {
 		// Parse incoming message as generic map to detect type first
-		var msgMap map[string]interface{}
-		if err := conn.ReadJSON(&msgMap); err != nil {
+		var raw map[string]interface{}
+		if err := conn.ReadJSON(&raw); err != nil {
 			fmt.Println("WS read error (client likely disconnected):", err)
 			break
 		}
 
 		// Check if this is a webcam signaling message (type field with offer/answer/candidate)
-		messageType, ok := msgMap["type"].(string)
+		messageType, ok := raw["type"].(string)
 		if ok && (messageType == "offer" || messageType == "answer" || messageType == "candidate") {
 			fmt.Println("Received webcam signaling message of type:", messageType)
 			// Forward webcam signaling data directly to opponent
 			opponentConn := hub.getOpponentConnection(conn, client.competitionId)
 			if opponentConn != nil {
-				opponentConn.WriteMessage(websocket.TextMessage, mustMarshal(msgMap))
+				opponentConn.WriteMessage(websocket.TextMessage, mustMarshal(raw))
 				fmt.Println("Forwarded webcam signaling data to opponent in room", client.competitionId)
 			}
 			continue
 		}
 
 		// Otherwise, treat as answer submission
-		var raw Competition_result
+		// var raw Competition_result
 		// Re-marshal the map back to JSON bytes and unmarshal into Competition_result
-		jsonBytes, _ := json.Marshal(msgMap)
-		json.Unmarshal(jsonBytes, &raw)
+		// jsonBytes, _ := json.Marshal(msgMap)
+		// json.Unmarshal(jsonBytes, &raw)
 		
 		// If this is an answer submission
-		if ans:= raw.Answer; ans != "" {
+		if ans:= raw["answer"]; ans != "" {
 			// Evaluate against the current question for the room
 			room := client.competitionId
 			q := hub.getQuestionForRoom(room)
@@ -442,7 +442,7 @@ func main() {
 
 	// db.AutoMigrate(&User{})
 	db.AutoMigrate(&Question{})
-	db.AutoMigrate(&Competition_result{})
+	// db.AutoMigrate(&Competition_result{})
 
 	hub := newHub()
 	hub.loadQuestionsFromDB(db)
