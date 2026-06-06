@@ -237,6 +237,7 @@ const StartCompetitionPage: React.FC = () => {
     setStatusMessage('Answer submitted. Waiting for evaluation...');
     // console.log('checking competition: ', state.competition);
     wsRef.current.send(JSON.stringify({
+      action: 'submit_answer',
       answer: option,
       questionId: currentQuestion.id,
       competitionId: state.competition.id,
@@ -273,6 +274,7 @@ const StartCompetitionPage: React.FC = () => {
     return 'border-gray-600 bg-gray-700 opacity-60 cursor-not-allowed';
   };
 
+
   // Timer Logic
   useEffect(() => {
     if (timeLeft > 0 && !gameResult) {
@@ -281,38 +283,6 @@ const StartCompetitionPage: React.FC = () => {
     }
   }, [timeLeft, gameResult]);
 
-  useEffect(() => {
-        let localStream: MediaStream | null = null;
-
-        async function enableWebcam() {
-          try {
-
-            const stream= await navigator.mediaDevices.getUserMedia({ 
-              video: {
-                width: { ideal: 640 },
-                height: { ideal: 480 },
-                facingMode: 'user',
-              },
-              audio: false
-             });
-             localStream = stream;
-             if (localVideoRef.current) {
-              localVideoRef.current.srcObject = stream;
-            }
-
-          } catch (error) {
-            console.error('Error accessing webcam:', error);
-          }
-        }
-
-        enableWebcam();
-          return () => {
-            if (localStream) {
-              localStream.getTracks().forEach(track => track.stop());
-            }
-          };
-        }
-  , []);
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white overflow-hidden">

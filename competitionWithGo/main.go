@@ -23,6 +23,7 @@ type Question struct {
 }
 
 type Competition_result struct {
+	action string `json:"action"`
 	ID            uint `gorm:"primaryKey"`
 	UserId        string  `gorm: "not null" json:"userId"`
 	OpponentId    string  `gorm: "not null" json:"opponentId"`
@@ -219,6 +220,17 @@ func (h *Hub) getQuestionForRoom(room string) *Question {
 	return &q
 }
 
+func (h *Hub) getOpponentConnection(conn *websocket.Conn, room string) *websocket.Conn {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for c := range h.rooms[room] {
+		if c.conn != conn {
+			return c.conn
+		}
+	}
+	return nil
+}
+
 func mustMarshal(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
@@ -230,6 +242,12 @@ type InitPayload struct {
 	CompetitionId string `json:"competitionId"`
 	OpponentId string `json:"opponentId"`
 
+}
+
+type competitionWebcam struct {
+	action string `json:"type"`
+	value string `json:"value"`
+	competitionId string `json:"competitionId"`
 }
 // handleWS manages websocket clients and uses a simple hub/room model to broadcast
 // questions and answer results. It is designed to be compatible with the
@@ -301,12 +319,32 @@ func handleWS(w http.ResponseWriter, r *http.Request, db *gorm.DB, hub *Hub) {
 
 	// Reader loop
 	for {
-		var raw Competition_result
-		
-		if err := conn.ReadJSON(&raw); err != nil {
+		// Parse incoming message as generic map to detect type first
+		var msgMap map[string]interface{}
+		if err := conn.ReadJSON(&msgMap); err != nil {
 			fmt.Println("WS read error (client likely disconnected):", err)
 			break
 		}
+
+		// Check if this is a webcam signaling message (type field with offer/answer/candidate)
+		messageType, ok := msgMap["type"].(string)
+		if ok && (messageType == "offer" || messageType == "answer" || messageType == "candidate") {
+			fmt.Println("Received webcam signaling message of type:", messageType)
+			// Forward webcam signaling data directly to opponent
+			opponentConn := hub.getOpponentConnection(conn, client.competitionId)
+			if opponentConn != nil {
+				opponentConn.WriteMessage(websocket.TextMessage, mustMarshal(msgMap))
+				fmt.Println("Forwarded webcam signaling data to opponent in room", client.competitionId)
+			}
+			continue
+		}
+
+		// Otherwise, treat as answer submission
+		var raw Competition_result
+		// Re-marshal the map back to JSON bytes and unmarshal into Competition_result
+		jsonBytes, _ := json.Marshal(msgMap)
+		json.Unmarshal(jsonBytes, &raw)
+		
 		// If this is an answer submission
 		if ans:= raw.Answer; ans != "" {
 			// Evaluate against the current question for the room
